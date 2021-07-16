@@ -1,0 +1,35 @@
+syntax = "proto3";
+
+message OrchestrationConfiguration {
+    string blueprint = 1; // blueprint.json as text
+    string dockerinfo = 2; // dockerinfo.json as text
+    bytes protoszip = 3; // ZIP file of protobuf files as binary
+    int32 queuesize = 4; // 0 for unlimited, or fixed number for fixed size
+}
+
+message OrchestrationStatus {
+    bool success = 1;
+    int32 code = 2;
+    string message = 3;
+}
+
+message OrchestrationObservationConfiguration {
+    string event_regex = 1; // filter for type of event
+    string component_regex = 2; // filter for component of event
+}
+
+message OrchestrationEvent {
+    string name = 1; // type of event
+    string component = 2; // system component that generated the event
+    map<string, string> detail = 3; // additional information
+}
+
+message OrchestrationRunConfiguration {
+    int32 iterations = 1; // limit number of iterations (<= 0 means infinity)
+}
+
+service Orchestrator {
+    rpc initialize(OrchestrationConfiguration) returns (OrchestrationStatus);
+    rpc observe(OrchestrationObservationConfiguration) returns (stream OrchestrationEvent);
+    rpc run(OrchestrationRunConfiguration) returns (OrchestrationStatus);
+}
