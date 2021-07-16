@@ -3,7 +3,7 @@ syntax = "proto3";
 message OrchestrationConfiguration {
     string blueprint = 1; // blueprint.json as text
     string dockerinfo = 2; // dockerinfo.json as text
-    bytes protoszip = 3; // ZIP file of protobuf files as binary
+    repeated string protofiles = 3; // sequence of contentes of all protobuf files of components as text
     int32 queuesize = 4; // 0 for unlimited, or fixed number for fixed size
 }
 
