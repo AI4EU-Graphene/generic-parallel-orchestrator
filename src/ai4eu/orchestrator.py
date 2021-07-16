@@ -150,6 +150,13 @@ def test_orchestrator(blueprint: str, dockerinfo: str, protofiles: List[str]):
     logging.warning("nodes %s", nodes)
     logging.warning("rpcs %s", rpcs)
     logging.warning("links %s", links)
+    # next steps:
+    # * create queues for links
+    # * create threads for rpcs
+    # * generate protobuf libraries from protofiles (do not merge)
+    # * adapt othread to import the right library and resolve types/RPCs from there
+    # * test orchestration with sudoku
+    # * 
 
 
 def main():
