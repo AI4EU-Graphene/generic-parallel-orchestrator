@@ -10,6 +10,7 @@ from . import othread
 
 class NodeInfo(BaseModel):
     container_name: str
+    service_name: str
     host: str
     port: int
 
@@ -19,10 +20,25 @@ class MessageInfo(BaseModel):
     stream: bool
 
 
+linkinfo_next_idx = 0
 class LinkInfo(BaseModel):
     input: 'RPCInfo'
     output: 'RPCInfo'
     message_name: str
+    idx: int
+
+    def __init__(self, **kwargs):
+        global linkinfo_next_idx
+        linkinfo_next_idx += 1
+        super().__init__(idx=linkinfo_next_idx, **kwargs)
+
+    def identifier(self) -> str:
+        return '%s=%s=>%s_%d' % (
+            self.input.node.container_name,
+            self.message_name,
+            self.output.node.container_name,
+            self.idx
+        )
 
 
 class RPCInfo(BaseModel):
@@ -32,6 +48,12 @@ class RPCInfo(BaseModel):
     output: MessageInfo
     incoming: List[LinkInfo]
     outgoing: List[LinkInfo]
+
+    def identifier(self) -> str:
+        return '%s_%d' % (
+            self.node.container_name,
+            self.operation
+        )
 
 
 # for the 'RPCInfo'
@@ -48,6 +70,11 @@ class Core:
     rpcs: List[RPCInfo] = []
     links: List[LinkInfo] = []
 
+    def parse_service_name_from_protofile(self, protofilename: str) -> str:
+        # find protofile in zip or unpacked
+        # parse single service or first service (for merged services)
+        # return service name
+
     def collect_node_infos(self, bpjson: dict, dijson: dict) -> Dict[str, NodeInfo]:
         '''
         extract node infos from dockerinfo json
@@ -56,8 +83,10 @@ class Core:
 
         # extract dockerinfo
         for di in dijson['docker_info_list']:
+            service_name = self.parse_service_name_from_protofile(di['container_name']+'.proto')
             ni = NodeInfo(
                 container_name=di['container_name'],
+                service_name=service_name,
                 host=di['ip_address'],
                 port=di['port'])
             if ni.container_name in self.nodes:
@@ -147,9 +176,34 @@ def test_orchestrator(blueprint: str, dockerinfo: str, protofiles: List[str]):
     nodes = oc.collect_node_infos(bpjson, dijson)
     rpcs, links = oc.collect_rpc_and_link_infos(bpjson)
 
-    logging.warning("nodes %s", nodes)
-    logging.warning("rpcs %s", rpcs)
-    logging.warning("links %s", links)
+    logging.warning("nodes\n\t%s", '\n\t'.join([str(n) for n in nodes.items()]))
+    logging.warning("rpcs\n\t%s", '\n\t'.join([str(r) for r in rpcs]))
+    logging.warning("links\n\t%s", '\n\t'.join([str(l) for l in links]))
+
+    om = othread.OrchestrationManager()
+
+    # create a queue for each link
+    queues = {}
+    for link in links:
+        linkid = link.identifier()
+        logging.warning("creating queue for link %s", linkid)
+        assert linkid not in queues, 'linkid must be unique in the solution'
+        queues[linkid] = om.create_queue(name=linkid, message=link.message_name)
+
+    # create one thread for each rpc
+    threads = {}
+    for rpc in rpcs:
+        rpcid = rpc.identifier()
+        logging.warning("creating thread for rpc %s", rpcid)
+        assert rpcid not in rpcs, 'rpcid must be unique in the solution'
+        rpcs[rpcid] = om.create_thread(
+            stream_in=rpc.input.stream,
+            stream_out=rpc.output.stream,
+            host=rpc.node.host, port=rpc.node.port,
+            service=rpc.
+            rpc=rpc.operation,
+
+
     # next steps:
     # * create queues for links
     # * create threads for rpcs
