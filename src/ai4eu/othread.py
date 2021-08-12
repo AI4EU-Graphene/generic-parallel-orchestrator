@@ -2,23 +2,13 @@ import logging
 import threading
 import traceback
 import grpc
+import importlib
 import time
 
 from queue import Queue, Full, Empty
 from typing import Dict, Any
 from pydantic import BaseModel
 from abc import ABC, abstractmethod
-
-
-def resolve_protobuf_message(message_name: str):
-    # TODO generalize this
-    import orchestrator_pb2
-    return getattr(orchestrator_pb2, message_name)
-
-
-def resolve_service_stub(service_name: str):
-    import orchestrator_pb2_grpc
-    return getattr(orchestrator_pb2_grpc, service_name + 'Stub')
 
 
 class Event(BaseModel):
@@ -100,14 +90,17 @@ class OrchestrationThreadBase(threading.Thread):
     def __init__(
         self,
         host: str, port: int,
+        protobuf_module, grpc_module,
         servicename: str, rpcname: str,
         observer: OrchestrationObserver,
-        empty_in: bool = False, empty_out: bool = False
+        empty_in: bool = False, empty_out: bool = False,
     ):
         super().__init__(daemon=True)
 
         self.host = host
         self.port = port
+        self.protobuf_module = protobuf_module
+        self.grpc_module = grpc_module
         self.servicename = servicename
         self.rpcname = rpcname
         self.observer = observer
@@ -116,6 +109,12 @@ class OrchestrationThreadBase(threading.Thread):
 
         self.input_queue = None
         self.output_queue = None
+
+    def resolve_and_create_service_stub(self, channel):
+        return getattr(self.grpc_module, self.servicename + 'Stub')(channel)
+
+    def resolve_protobuf_message(self, messagename: str):
+        return getattr(self.protobuf_module, messagename)
 
     def _event(self, name: str, detail: dict):
         extended_detail = detail | {
@@ -145,8 +144,7 @@ class OrchestrationThreadBase(threading.Thread):
         if not self.empty_in:
             in_message = self.input_queue.consume()
         else:
-            # TODO generalize: message type as constructor parameters
-            in_message = resolve_protobuf_message('Empty')()
+            in_message = self.resolve_protobuf_message('Empty')()
         return in_message
 
     def _distribute_or_ignore_output(self, out_message):
@@ -161,7 +159,7 @@ class StreamOutOrchestrationThread(OrchestrationThreadBase):
     def run(self):
         self._event('thread started', {})
         channel = grpc.insecure_channel(f'{self.host}:{self.port}')
-        stub = resolve_service_stub(self.servicename)(channel)
+        stub = self.resolve_and_create_service_stub(channel)
         try:
             while True:
                 in_message = self._wait_for_or_create_input()
@@ -179,7 +177,7 @@ class NonstreamOrchestrationThread(OrchestrationThreadBase):
     def run(self):
         self._event('thread started', {})
         channel = grpc.insecure_channel(f'{self.host}:{self.port}')
-        stub = resolve_service_stub(self.servicename)(channel)
+        stub = self.resolve_and_create_service_stub(channel)
         try:
             while True:
                 in_message = self._wait_for_or_create_input()
@@ -207,7 +205,7 @@ class StreamInOrchestrationThread(OrchestrationThreadBase):
     def run(self):
         self._event('thread started', {})
         channel = grpc.insecure_channel(f'{self.host}:{self.port}')
-        stub = resolve_service_stub(self.servicename)(channel)
+        stub = self.resolve_and_create_service_stub(channel)
         assert(self.empty_in is False)
         try:
             while True:
@@ -227,7 +225,7 @@ class StreamInOutOrchestrationThread(OrchestrationThreadBase):
     def run(self):
         self._event('thread started', {})
         channel = grpc.insecure_channel(f'{self.host}:{self.port}')
-        stub = resolve_service_stub(self.servicename)(channel)
+        stub = self.resolve_and_create_service_stub(channel)
         assert(self.empty_in is False)
         try:
             while True:
@@ -249,10 +247,12 @@ class OrchestrationManager:
     queues: Dict[str, OrchestrationQueue]
     observer: OrchestrationObserver
 
-    def __init__(self):
+    def __init__(self, merged_protobuf_module, merged_grpc_module):
         self.threads = {}
         self.queues = {}
         self.observer = LoggingOrchestrationObserver()
+        self.protobuf_module = merged_protobuf_module
+        self.grpc_module = merged_grpc_module
 
         # key = (stream_in, stream_out)
         self.THREAD_TYPES = {
@@ -274,7 +274,7 @@ class OrchestrationManager:
         assert(name not in self.threads)
 
         Thread_type = self.THREAD_TYPES[(stream_in, stream_out)]
-        t = Thread_type(host, port, service, rpc, self.observer, empty_in, empty_out)
+        t = Thread_type(host, port, self.protobuf_module, self.grpc_module, service, rpc, self.observer, empty_in, empty_out)
         self.threads[name] = t
 
         return t

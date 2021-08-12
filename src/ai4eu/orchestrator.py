@@ -1,8 +1,14 @@
 # from __future__ import annotations  # for recursive pydantic types, only > 3.7
+import json
 import logging
 import os
-import json
-from typing import List, Dict, Tuple
+import subprocess
+import sys
+import tempfile
+import collections
+
+from google.protobuf.descriptor_pb2 import FileDescriptorSet, FileDescriptorProto
+from typing import List, Dict, Tuple, Optional
 from pydantic import BaseModel
 
 from . import othread
@@ -10,7 +16,7 @@ from . import othread
 
 class NodeInfo(BaseModel):
     container_name: str
-    service_name: str
+    service_name: Optional[str]  # None for the orchestrator node
     host: str
     port: int
 
@@ -50,7 +56,7 @@ class RPCInfo(BaseModel):
     outgoing: List[LinkInfo]
 
     def identifier(self) -> str:
-        return '%s_%d' % (
+        return '%s_%s' % (
             self.node.container_name,
             self.operation
         )
@@ -65,25 +71,124 @@ def readfile(path) -> str:
         return f.read()
 
 
+class ProtobufMerger:
+    def __init__(self, protoc='protoc'):
+        self.protoc = protoc
+
+    def merge(self, protofiles: Dict[str, str], output_filename) -> FileDescriptorSet:
+        '''
+        parse protofiles with protoc into descriptor
+        combine descriptors
+        raise error if duplicate message names have different content
+        return file descriptor set that can be used as input to protoc to generate Python code
+        '''
+        messages = {}
+        message_in_files = collections.defaultdict(list)
+        
+        services = {}
+        service_in_files = collections.defaultdict(list)
+
+        with tempfile.TemporaryDirectory() as tdir:
+            for fname, fcontent in protofiles.items():
+                disk_fname = os.path.join(tdir, fname + '.proto')
+                with open(disk_fname, 'w+') as f:
+                    f.write(fcontent)
+
+                out = subprocess.check_output(
+                    '%s --descriptor_set_out=/dev/stdout --proto_path=%s %s' % (
+                        self.protoc,
+                        tdir,
+                        disk_fname,
+                    ),
+                    stderr=sys.stderr, shell=True)
+                fds = FileDescriptorSet.FromString(out)
+                logging.debug("from fname %s parsed fds %s", fname, fds)
+
+                for f in fds.file:
+                    if f.package is not None and f.package != '':
+                        raise ValueError("cannot process package '%s' in file '%s'" % (f.package, fname))
+                    if f.syntax != 'proto3':
+                        raise ValueError("cannot process syntax '%s' in file '%s'" % (f.syntax, fname))
+
+                    # collect messages
+                    for msg in f.message_type:
+                        # copy message if unknown, compare if known
+                        if msg.name in messages:
+                            if msg != messages[msg.name]:
+                                raise ValueError("cannot merge protobuf files: message '%s' present in files %s and in file %s with different content" % (
+                                    msg.name, message_in_files[msg.name], fname))
+                            message_in_files[msg.name].append(fname)
+                        else:
+                            messages[msg.name] = msg
+                            message_in_files[msg.name].append(fname)
+
+                    if len(f.enum_type) > 0:
+                        raise ValueError("cannot process protobuf input with enums '%s'" % str([ed.name for ed in f.enum_type]))
+                    if len(f.extension) > 0:
+                        raise ValueError("cannot process protobuf input with extensions '%s'" % str([e.name for e in f.extension]))
+
+                    # collect services
+                    for srv in f.service:
+                        # copy srvice if unknown, compare if known
+                        if srv.name in services:
+                            if srv != services[srv.name]:
+                                raise ValueError("cannot merge protobuf files: service '%s' present in files %s and in file %s with different content" % (
+                                    srv.name, service_in_files[srv.name], fname))
+                            service_in_files[srv.name].append(fname)
+                        else:
+                            services[srv.name] = srv
+                            service_in_files[srv.name].append(fname)
+
+        fdp = FileDescriptorProto(
+            name=output_filename,
+            message_type=messages.values(),
+            service=services.values(),
+        )
+        ofds = FileDescriptorSet(file=[fdp])
+        return ofds
+
 class Core:
     nodes: Dict[str, NodeInfo] = {}
     rpcs: List[RPCInfo] = []
     links: List[LinkInfo] = []
 
-    def parse_service_name_from_protofile(self, protofilename: str) -> str:
-        # find protofile in zip or unpacked
+    def parse_service_name_from_protofile(self, filecontent: str) -> str:
         # parse single service or first service (for merged services)
         # return service name
+        servicelines = [
+            line.strip()
+            for line in filecontent.split('\n')
+            if line.startswith('service ')
+        ]
+        logging.debug("got servicelines %s", servicelines)
+        servicename = servicelines[0].split('{', 1)[0].strip().split(' ', 1)[1].strip()
+        logging.debug("parsed servicename '%s'", servicename)
+        return servicename
 
-    def collect_node_infos(self, bpjson: dict, dijson: dict) -> Dict[str, NodeInfo]:
+    def prepare_and_compile_protobuf_files(self, protofiles: Dict[str, str], output_filename='all_in_one.proto') -> None:
+        merger = ProtobufMerger()
+        merged_fds = merger.merge(protofiles, output_filename)
+
+        subprocess.run(
+            'python -m grpc_tools.protoc --descriptor_set_in=/dev/stdin --python_out=./ --grpc_python_out=./ %s' % output_filename,
+            stderr=sys.stderr, input=merged_fds.SerializeToString(), shell=True, check=True)
+
+    def collect_node_infos(self, bpjson: dict, dijson: dict, protofiles: Dict[str, str]) -> Dict[str, NodeInfo]:
         '''
         extract node infos from dockerinfo json
         verify that all nodes in blueprint are in dockerinfo
         '''
 
+        self.prepare_and_compile_protobuf_files(protofiles)
+
         # extract dockerinfo
         for di in dijson['docker_info_list']:
-            service_name = self.parse_service_name_from_protofile(di['container_name']+'.proto')
+            protofilename = di['container_name'] + '.proto'
+            protofilecontent = protofiles.get(protofilename, None)
+            if protofilecontent:
+                service_name = self.parse_service_name_from_protofile(protofilecontent)
+            else:
+                service_name = None
             ni = NodeInfo(
                 container_name=di['container_name'],
                 service_name=service_name,
@@ -169,18 +274,20 @@ class Core:
         return self.rpcs, self.links
 
 
-def test_orchestrator(blueprint: str, dockerinfo: str, protofiles: List[str]):
+def test_orchestrator(blueprint: str, dockerinfo: str, protofiles: Dict[str, str]):
     bpjson = json.loads(blueprint)
     dijson = json.loads(dockerinfo)
     oc = Core()
-    nodes = oc.collect_node_infos(bpjson, dijson)
+    nodes = oc.collect_node_infos(bpjson, dijson, protofiles)
     rpcs, links = oc.collect_rpc_and_link_infos(bpjson)
 
     logging.warning("nodes\n\t%s", '\n\t'.join([str(n) for n in nodes.items()]))
     logging.warning("rpcs\n\t%s", '\n\t'.join([str(r) for r in rpcs]))
     logging.warning("links\n\t%s", '\n\t'.join([str(l) for l in links]))
 
-    om = othread.OrchestrationManager()
+    import all_in_one_pb2
+    import all_in_one_pb2_grpc
+    om = othread.OrchestrationManager(all_in_one_pb2, all_in_one_pb2_grpc)
 
     # create a queue for each link
     queues = {}
@@ -195,33 +302,35 @@ def test_orchestrator(blueprint: str, dockerinfo: str, protofiles: List[str]):
     for rpc in rpcs:
         rpcid = rpc.identifier()
         logging.warning("creating thread for rpc %s", rpcid)
-        assert rpcid not in rpcs, 'rpcid must be unique in the solution'
-        rpcs[rpcid] = om.create_thread(
+        assert rpcid not in threads, 'rpcid must be unique in the solution'
+        threads[rpcid] = om.create_thread(
             stream_in=rpc.input.stream,
             stream_out=rpc.output.stream,
+            empty_in=rpc.input.name == 'Empty',
+            empty_out=rpc.output.name == 'Empty',
             host=rpc.node.host, port=rpc.node.port,
-            service=rpc.
+            service=rpc.node.service_name,
             rpc=rpc.operation,
+        )
 
+    om.orchestrate_forever()
 
     # next steps:
-    # * create queues for links
-    # * create threads for rpcs
-    # * generate protobuf libraries from protofiles (do not merge)
-    # * adapt othread to import the right library and resolve types/RPCs from there
+    # * link threads and queues
     # * test orchestration with sudoku
     # * 
 
 
 def main():
+    logging.basicConfig(level=logging.DEBUG)
     BASE = os.path.abspath(os.path.dirname(__file__))
     test_orchestrator(
         readfile(os.path.join(BASE, '..', '..', 'sample', 'blueprint.json')),
         readfile(os.path.join(BASE, '..', '..', 'sample', 'dockerinfo.json')),
-        [
-            readfile(os.path.join(BASE, '..', '..', 'sample', 'protofiles', f + '.proto'))
-            for f in ['asp', 'sudoku-design-evaluator', 'sudoku-gui']
-       ]
+        {
+            f + '.proto': readfile(os.path.join(BASE, '..', '..', 'sample', 'protofiles', f + '.proto'))
+            for f in ['sudoku-aspsolver1', 'sudoku-design-evaluator-stream1', 'sudoku-gui-stream1']
+        }
     )
 
 
