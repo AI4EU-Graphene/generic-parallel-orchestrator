@@ -102,7 +102,7 @@ class ProtobufMerger:
                     ),
                     stderr=sys.stderr, shell=True)
                 fds = FileDescriptorSet.FromString(out)
-                logging.debug("from fname %s parsed fds %s", fname, fds)
+                # logging.debug("from fname %s parsed fds %s", fname, fds)
 
                 for f in fds.file:
                     if f.package is not None and f.package != '':
@@ -281,9 +281,10 @@ def test_orchestrator(blueprint: str, dockerinfo: str, protofiles: Dict[str, str
     nodes = oc.collect_node_infos(bpjson, dijson, protofiles)
     rpcs, links = oc.collect_rpc_and_link_infos(bpjson)
 
-    logging.warning("nodes\n\t%s", '\n\t'.join([str(n) for n in nodes.items()]))
-    logging.warning("rpcs\n\t%s", '\n\t'.join([str(r) for r in rpcs]))
-    logging.warning("links\n\t%s", '\n\t'.join([str(l) for l in links]))
+    if logging.getLogger().isEnabledFor(logging.DEBUG):
+        logging.debug("nodes\n\t%s", '\n\t'.join([str(n) for n in nodes.items()]))
+        logging.debug("rpcs\n\t%s", '\n\t'.join([str(r) for r in rpcs]))
+        logging.debug("links\n\t%s", '\n\t'.join([str(l) for l in links]))
 
     import all_in_one_pb2
     import all_in_one_pb2_grpc
@@ -292,17 +293,23 @@ def test_orchestrator(blueprint: str, dockerinfo: str, protofiles: Dict[str, str
     # create a queue for each link
     queues = {}
     for link in links:
+        # identifier
         linkid = link.identifier()
-        logging.warning("creating queue for link %s", linkid)
+        logging.debug("creating queue for link %s", linkid)
         assert linkid not in queues, 'linkid must be unique in the solution'
+
+        # create
         queues[linkid] = om.create_queue(name=linkid, message=link.message_name)
 
     # create one thread for each rpc
     threads = {}
     for rpc in rpcs:
+        # identifier
         rpcid = rpc.identifier()
-        logging.warning("creating thread for rpc %s", rpcid)
+        logging.debug("creating thread for rpc %s", rpcid)
         assert rpcid not in threads, 'rpcid must be unique in the solution'
+
+        # create
         threads[rpcid] = om.create_thread(
             stream_in=rpc.input.stream,
             stream_out=rpc.output.stream,
@@ -313,12 +320,21 @@ def test_orchestrator(blueprint: str, dockerinfo: str, protofiles: Dict[str, str
             rpc=rpc.operation,
         )
 
-    om.orchestrate_forever()
+    # register each queue in an output and an input thread
+    for link in links:
+        # get queue and threads
+        queue = queues[link.identifier()]
+        input_from_rpcid = link.input.identifier()
+        output_to_rpcid = link.output.identifier()
+        input_thread = threads[input_from_rpcid]
+        output_thread = threads[output_to_rpcid]
 
-    # next steps:
-    # * link threads and queues
-    # * test orchestration with sudoku
-    # * 
+        # the output from some thread is the input for the queue
+        input_thread.attach_output_queue(queue)
+        # the output of the queue is the input for another thread
+        output_thread.attach_input_queue(queue)
+
+    om.orchestrate_forever()
 
 
 def main():
