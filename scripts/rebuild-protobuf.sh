@@ -1,0 +1,1 @@
+python -m grpc_tools.protoc --python_out=src/ai4eu/ --proto_path=protobuf --grpc_python_out=src/ai4eu/ protobuf/orchestrator.proto

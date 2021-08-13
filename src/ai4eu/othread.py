@@ -247,10 +247,10 @@ class OrchestrationManager:
     queues: Dict[str, OrchestrationQueue]
     observer: OrchestrationObserver
 
-    def __init__(self, merged_protobuf_module, merged_grpc_module):
+    def __init__(self, merged_protobuf_module, merged_grpc_module, observer=LoggingOrchestrationObserver()):
         self.threads = {}
         self.queues = {}
-        self.observer = LoggingOrchestrationObserver()
+        self.observer = observer
         self.protobuf_module = merged_protobuf_module
         self.grpc_module = merged_grpc_module
 
@@ -292,11 +292,9 @@ class OrchestrationManager:
 
         return q
 
-    def orchestrate_forever(self):
-        # event
+    def orchestrate(self):
         for t in self.threads.values():
             t.start()
 
-        # event
         for t in self.threads.values():
             t.join()
