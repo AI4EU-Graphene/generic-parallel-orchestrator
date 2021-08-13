@@ -35,7 +35,7 @@ class OrchestratorServicerImpl(orchestrator_pb2_grpc.OrchestratorServicer):
         except Exception as e:
             logging.info("OSI initialize exception: %s", traceback.format_exc())
 
-    def observe(self, request: orchestrator_pb2.OrchestrationObservationConfiguration, context) -> Generator[orchestrator_pb2.OrchestrationEvent]:
+    def observe(self, request: orchestrator_pb2.OrchestrationObservationConfiguration, context) -> Generator[orchestrator_pb2.OrchestrationEvent, None, None]:
         try:
             logging.info("OSI observe %s", request)
 
@@ -73,8 +73,8 @@ configfile = os.environ['CONFIG'] if 'CONFIG' in os.environ else "config.json"
 try:
     logging.info("loading config from %s", configfile)
     config = json.load(open(configfile, 'rt'))
-except Exception:
-    logging.warning("using empty config (=defaults) because %s", traceback.format_exception_only())
+except Exception as e:
+    logging.warning("using empty config (=defaults) because %s", e)
     config = {}
 
 grpcserver = grpc.server(

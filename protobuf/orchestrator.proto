@@ -35,3 +35,4 @@ service Orchestrator {
     rpc observe(OrchestrationObservationConfiguration) returns (stream OrchestrationEvent);
     rpc run(RunLabel) returns (OrchestrationStatus);
 }
+
