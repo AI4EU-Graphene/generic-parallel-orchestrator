@@ -107,13 +107,26 @@ class OrchestrationObserver(threading.Thread):
             channel = grpc.insecure_channel(self.endpoint)
             stub = orchestrator_pb2_grpc.OrchestratorStub(channel)
             for event in stub.observe(self.configuration):
+
                 # omit event.run because we do not use it yet
-                print("%s produced event %s with details %s" % (
-                    event.component,
-                    event.name,
-                    ' '.join([f"{k}/{v}" for k, v in event.detail.items()])
-                ))
+                if event.name == 'exception':
+
+                    # display exceptions in a special way
+                    print("%s produced exception in method %s with traceback\n%s" % (
+                        event.component, event.detail['method'], event.detail['traceback']))
+
+                else:
+
+                    # generic display
+                    detailstr = ''
+                    if len(event.detail) > 0:
+                        detailstr = ' with details ' + ' '.join(
+                            [f"{k}={repr(v)}" for k, v in event.detail.items()]
+                        )
+                    print("%s produced event '%s'%s" % (event.component, event.name, detailstr))
+
                 sys.stdout.flush()
+
         except KeyboardInterrupt:
             # CTRL+C or SIGTERM should just terminate, not write any exception info
             pass
@@ -163,16 +176,16 @@ def main():
     logging.basicConfig(level=logging.INFO)
     ap = argparse.ArgumentParser()
     ap.add_argument(
-        '-h, --host', type=str, required=False, metavar='HOST', action='store',
+        '-H', '--host', type=str, required=False, metavar='HOST', action='store',
         dest='host', help='The host name or IP address of the orchestrator.')
     ap.add_argument(
-        '-p, --port', type=int, required=False, metavar='PORT', action='store',
+        '-p', '--port', type=int, required=False, metavar='PORT', action='store',
         dest='port', help='The network port of the orchestrator.')
     ap.add_argument(
-        '-e, --endpoint', type=str, required=False, metavar='IP:PORT', action='store',
+        '-e', '--endpoint', type=str, required=False, metavar='IP:PORT', action='store',
         dest='endpoint', help='The endpoint (combination of host and port) of the orchestrator.')
     ap.add_argument(
-        '-b, --basepath', type=str, required=False, metavar='BASEPATH', action='store',
+        '-b', '--basepath', type=str, required=False, metavar='BASEPATH', action='store',
         dest='basepath', help='The path where dockerinfo.json, blueprint.json, and pipelineprotos.zip can be found.')
     args = ap.parse_args()
 

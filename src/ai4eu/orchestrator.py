@@ -165,7 +165,7 @@ class Core:
         logging.debug("parsed servicename '%s'", servicename)
         return servicename
 
-    def prepare_and_compile_protobuf_files(self, protofiles: Dict[str, str], output_filename='all_in_one.proto') -> None:
+    def merge_and_compile_protobuf_files(self, protofiles: Dict[str, str], output_filename='all_in_one.proto') -> None:
         merger = ProtobufMerger()
         merged_fds = merger.merge(protofiles, output_filename)
 
@@ -173,13 +173,13 @@ class Core:
             'python -m grpc_tools.protoc --descriptor_set_in=/dev/stdin --python_out=./ --grpc_python_out=./ %s' % output_filename,
             stderr=sys.stderr, input=merged_fds.SerializeToString(), shell=True, check=True)
 
-    def collect_node_infos(self, bpjson: dict, dijson: dict, protofiles: Dict[str, str]) -> Dict[str, NodeInfo]:
+    def merge_protobuf_collect_node_infos(self, bpjson: dict, dijson: dict, protofiles: Dict[str, str]) -> Dict[str, NodeInfo]:
         '''
         extract node infos from dockerinfo json
         verify that all nodes in blueprint are in dockerinfo
         '''
 
-        self.prepare_and_compile_protobuf_files(protofiles)
+        self.merge_and_compile_protobuf_files(protofiles)
 
         # extract dockerinfo
         for di in dijson['docker_info_list']:
@@ -275,10 +275,13 @@ class Core:
 
 
 def test_orchestrator(blueprint: str, dockerinfo: str, protofiles: Dict[str, str]):
+    '''
+    directly run the orchestrator with given files
+    '''
     bpjson = json.loads(blueprint)
     dijson = json.loads(dockerinfo)
     oc = Core()
-    nodes = oc.collect_node_infos(bpjson, dijson, protofiles)
+    nodes = oc.merge_protobuf_collect_node_infos(bpjson, dijson, protofiles)
     rpcs, links = oc.collect_rpc_and_link_infos(bpjson)
 
     if logging.getLogger().isEnabledFor(logging.DEBUG):
@@ -338,6 +341,9 @@ def test_orchestrator(blueprint: str, dockerinfo: str, protofiles: Dict[str, str
 
 
 def main():
+    '''
+    this is just for testing
+    '''
     logging.basicConfig(level=logging.DEBUG)
     BASE = os.path.abspath(os.path.dirname(__file__))
     test_orchestrator(
@@ -351,4 +357,5 @@ def main():
 
 
 if __name__ == '__main__':
+    # test this file
     main()

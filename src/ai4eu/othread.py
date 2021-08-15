@@ -6,13 +6,15 @@ import importlib
 import time
 
 from queue import Queue, Full, Empty
-from typing import Dict, Any
+from typing import Dict, Any, Optional
 from pydantic import BaseModel
 from abc import ABC, abstractmethod
 
 
 class Event(BaseModel):
+    run: Optional[str]
     name: str
+    component: str
     detail: Dict[str, Any]
 
 
@@ -31,7 +33,7 @@ class LoggingOrchestrationObserver(OrchestrationObserver):
         messagedetail = ''
         if 'message' in evt.detail:
             messagedetail = ' (message length %d)' % len(str(evt.detail['message']))
-        logging.info("Orchestration Event: %s %s%s", evt.name, shortdetail, messagedetail)
+        logging.info("Orchestration Event: %s/%s %s%s", evt.component, evt.name, shortdetail, messagedetail)
 
 
 class OrchestrationQueue(ABC):
@@ -43,12 +45,30 @@ class OrchestrationQueue(ABC):
         self.observer = observer
         self.queue = internal_queue
 
+    def _event(self, name: str, detail: dict):
+
+        # only transfer datatypes that can be understood by the orchestrator client for sure
+        converted_detail = {}
+        for k, v in detail.items():
+            if not isinstance(v, (str, int, float)):
+                converted_detail[k] = str(v)
+            else:
+                converted_detail[k] = v
+
+        self.observer.event(Event(
+            component=str(self),
+            name=name,
+            detail=converted_detail))
+
+    def __str__(self):
+        return 'OrchestrationQueue[%s]' % self.name
+
     def add(self, message: Any):
         try:
             self.queue.put_nowait(message)
-            self.observer.event(Event(name='queue.added', detail={'queue': self.name, 'message': message}))
+            self._event('queue.added', {'queue': self.name, 'message': message})
         except Full:
-            self.observer.event(Event(name='queue.discarded', detail={'queue': self.name, 'message': message}))
+            self._event('queue.discarded', {'queue': self.name, 'message': message})
 
     def poll(self) -> Any or None:
         '''
@@ -57,22 +77,25 @@ class OrchestrationQueue(ABC):
         try:
             return self._consume(block=False)
         except Empty:
-            self.observer.event(Event(name='queue.polled_empty', detail={'queue': self.name}))
+            self._event('queue.polled_empty', {'queue': self.name})
             return None
 
-    def consume(self) -> Any:
+    def consume(self, timeout=None) -> Optional[Any]:
         '''
         wait for queue to contain element, remove and return
         notify on consumption
         '''
-        return self._consume(block=True)
+        return self._consume(block=True, timeout=timeout)
 
     def qsize(self) -> int:
         return self.queue.qsize()
 
-    def _consume(self, block: bool) -> Any:
-        message = self.queue.get(block=block)
-        self.observer.event(Event(name='queue.consumed', detail={'queue': self.name, 'message': message}))
+    def _consume(self, block: bool, timeout=None) -> Optional[Any]:
+        try:
+            message = self.queue.get(block=block, timeout=timeout)
+            self._event('queue.consumed', {'queue': self.name, 'message': message})
+        except Empty:
+            message = None
         return message
 
 
@@ -87,6 +110,9 @@ class LatestMessageOrchestrationQueue(OrchestrationQueue):
 
 
 class OrchestrationThreadBase(threading.Thread):
+    class EasyTerminate(Exception):
+        pass
+
     def __init__(
         self,
         host: str, port: int,
@@ -106,9 +132,12 @@ class OrchestrationThreadBase(threading.Thread):
         self.observer = observer
         self.empty_in = empty_in
         self.empty_out = empty_out
+        self.shall_terminate = False
 
         self.input_queue = None
         self.output_queue = None
+
+        self.channel = None
 
     def resolve_and_create_service_stub(self, channel):
         return getattr(self.grpc_module, self.servicename + 'Stub')(channel)
@@ -117,12 +146,19 @@ class OrchestrationThreadBase(threading.Thread):
         return getattr(self.protobuf_module, messagename)
 
     def _event(self, name: str, detail: dict):
-        extended_detail = detail | {
-            'source': str(self)
-        }
+
+        # only transfer datatypes that can be understood by the orchestrator client for sure
+        converted_detail = {}
+        for k, v in detail.items():
+            if not isinstance(v, (str, int, float)):
+                converted_detail[k] = str(v)
+            else:
+                converted_detail[k] = v
+
         self.observer.event(Event(
+            component=str(self),
             name=name,
-            detail=extended_detail))
+            detail=converted_detail))
 
     def attach_input_queue(self, q: OrchestrationQueue):
         '''
@@ -141,10 +177,17 @@ class OrchestrationThreadBase(threading.Thread):
         self.output_queue = q
 
     def _wait_for_or_create_input(self):
+        in_message = None
         if not self.empty_in:
-            in_message = self.input_queue.consume()
+            while not self.shall_terminate and in_message is None:
+                in_message = self.input_queue.consume(timeout=1.0)
         else:
             in_message = self.resolve_protobuf_message('Empty')()
+
+        # raising here is easier than changing all threads
+        if self.shall_terminate:
+            raise self.EasyTerminate()
+
         return in_message
 
     def _distribute_or_ignore_output(self, out_message):
@@ -154,92 +197,136 @@ class OrchestrationThreadBase(threading.Thread):
     def __str__(self):
         return f'OrchestrationThreadBase[svc={self.servicename},rpc={self.rpcname}]'
 
+    def terminate(self):
+        '''
+        send termination flag and do not wait for termination
+        '''
+        if self.channel is not None:
+            self.channel.close()
+        self.shall_terminate = True
+
 
 class StreamOutOrchestrationThread(OrchestrationThreadBase):
     def run(self):
-        self._event('thread started', {})
-        channel = grpc.insecure_channel(f'{self.host}:{self.port}')
-        stub = self.resolve_and_create_service_stub(channel)
+        self._event('thread.start', {})
+        self.channel = grpc.insecure_channel(f'{self.host}:{self.port}')
+        stub = self.resolve_and_create_service_stub(self.channel)
         try:
             while True:
                 in_message = self._wait_for_or_create_input()
-                self._event('calling RPC', {'rpc': self.rpcname, 'message': in_message})
+                self._event('RPC.call', {'rpc': self.rpcname, 'message': in_message})
                 rpcresult = getattr(stub, self.rpcname)(in_message)
                 for out_message in rpcresult:
                     self._event('distributing streaming output', {'rpc': self.rpcname, 'message': out_message})
                     self._distribute_or_ignore_output(out_message)
+                self._event('RPC.finished', {'rpc': self.rpcname})
+        except self.EasyTerminate:
+            pass
         except Exception:
             logging.error(traceback.format_exc())
-        self._event('thread terminated', {})
+        self._event('thread.terminate', {})
 
 
 class NonstreamOrchestrationThread(OrchestrationThreadBase):
     def run(self):
-        self._event('thread started', {})
-        channel = grpc.insecure_channel(f'{self.host}:{self.port}')
-        stub = self.resolve_and_create_service_stub(channel)
+        self._event('thread.start', {})
+        self.channel = grpc.insecure_channel(f'{self.host}:{self.port}')
+        stub = self.resolve_and_create_service_stub(self.channel)
         try:
             while True:
                 in_message = self._wait_for_or_create_input()
-                self._event('calling RPC', {'rpc': self.rpcname, 'message': in_message})
+                self._event('RPC.call', {'rpc': self.rpcname, 'message': in_message})
                 out_message = getattr(stub, self.rpcname)(in_message)
                 self._event('distributing output message', {'rpc': self.rpcname, 'message': out_message})
                 self._distribute_or_ignore_output(out_message)
+                self._event('RPC.finished', {'rpc': self.rpcname})
+        except self.EasyTerminate:
+            pass
         except Exception:
             logging.error(traceback.format_exc())
-        self._event('thread terminated', {})
+        self._event('thread.terminate', {})
 
 
 class InputIteratorFromOrchestrationQueue:
-    def __init__(self, q: OrchestrationQueue):
+    def __init__(self, t: OrchestrationThreadBase, q: OrchestrationQueue):
+        self.t = t
         self.q = q
 
     def __iter__(self):
         while True:
-            e = self.q.consume()
-            # TODO remember "unconsumed" if exception during yield and usefor next rpc call
-            yield e
+            e = self.q.consume(timeout=1.0)
+            if e is not None:
+                # TODO remember "unconsumed" if exception during yield and usefor next rpc call
+                yield e
+            elif self.t.shall_terminate:
+                raise self.t.EasyTerminate()
 
 
 class StreamInOrchestrationThread(OrchestrationThreadBase):
     def run(self):
-        self._event('thread started', {})
-        channel = grpc.insecure_channel(f'{self.host}:{self.port}')
-        stub = self.resolve_and_create_service_stub(channel)
+        self._event('thread.start', {})
+        self.channel = grpc.insecure_channel(f'{self.host}:{self.port}')
+        stub = self.resolve_and_create_service_stub(self.channel)
         assert(self.empty_in is False)
         try:
+
             while True:
-                while self.input_queue.qsize() == 0:
+
+                # wait for next input message that can trigger a RPC call
+                while self.input_queue.qsize() == 0 and not self.shall_terminate:
                     time.sleep(0.1)
-                in_message_iterator = InputIteratorFromOrchestrationQueue(self.input_queue)
-                self._event('calling RPC', {'rpc': self.rpcname})
+                if self.shall_terminate:
+                    raise self.EasyTerminate()
+
+                # start RPC call, streaming in messages from queue
+                in_message_iterator = InputIteratorFromOrchestrationQueue(self, self.input_queue)
+                self._event('RPC.call', {'rpc': self.rpcname})
                 out_message = getattr(stub, self.rpcname)(in_message_iterator.__iter__())
+
+                # distribute the single output message
                 self._event('distributing output message', {'rpc': self.rpcname, 'message': out_message})
                 self._distribute_or_ignore_output(out_message)
+                self._event('RPC.finished', {'rpc': self.rpcname})
+        except self.EasyTerminate:
+            pass
         except Exception:
             logging.error(traceback.format_exc())
-        self._event('thread terminated', {})
+        self._event('thread.terminate', {})
 
 
 class StreamInOutOrchestrationThread(OrchestrationThreadBase):
     def run(self):
-        self._event('thread started', {})
-        channel = grpc.insecure_channel(f'{self.host}:{self.port}')
-        stub = self.resolve_and_create_service_stub(channel)
+        self._event('thread.start', {})
+        self.channel = grpc.insecure_channel(f'{self.host}:{self.port}')
+        stub = self.resolve_and_create_service_stub(self.channel)
         assert(self.empty_in is False)
         try:
+
             while True:
-                while self.input_queue.qsize() == 0:
+
+                # wait for next input message that can trigger a RPC call
+                while self.input_queue.qsize() == 0 and not self.shall_terminate:
                     time.sleep(0.1)
+                if self.shall_terminate:
+                    raise self.EasyTerminate()
+
+                # start RPC call, streaming in messages from queue
                 in_message_iterator = InputIteratorFromOrchestrationQueue(self.input_queue)
-                self._event('calling RPC', {'rpc': self.rpcname})
+                self._event('RPC.call', {'rpc': self.rpcname})
                 rpcresult = getattr(stub, self.rpcname)(in_message_iterator.__iter__())
+
+                # distribute output messages (this happens in parallel to input iteration)
                 for out_message in rpcresult:
                     self._event('distributing streaming output', {'rpc': self.rpcname, 'message': out_message})
                     self._distribute_or_ignore_output(out_message)
+                self._event('RPC.finished', {'rpc': self.rpcname})
+
+        except self.EasyTerminate:
+            pass
         except Exception:
             logging.error(traceback.format_exc())
-        self._event('thread terminated', {})
+
+        self._event('thread.terminate', {})
 
 
 class OrchestrationManager:
@@ -293,8 +380,21 @@ class OrchestrationManager:
         return q
 
     def orchestrate(self):
-        for t in self.threads.values():
+        self.start_orchestration()
+        self.wait_for_orchestration()
+
+    def start_orchestration(self):
+        for name, t in self.threads.items():
+            logging.debug("starting %s", name)
             t.start()
 
-        for t in self.threads.values():
+    def terminate_orchestration(self):
+        for name, t in self.threads.items():
+            logging.debug("terminating %s", name)
+            t.terminate()
+        self.wait_for_orchestration()
+
+    def wait_for_orchestration(self):
+        for name, t in self.threads.items():
+            logging.debug("joining %s", name)
             t.join()
