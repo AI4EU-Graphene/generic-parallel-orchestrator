@@ -152,6 +152,13 @@ class Core:
     rpcs: List[RPCInfo] = []
     links: List[LinkInfo] = []
 
+    def __init__(self):
+        global linkinfo_next_idx
+        self.nodes = {}
+        self.rpcs = []
+        self.links = []
+        linkinfo_next_idx = 0
+
     def parse_service_name_from_protofile(self, filecontent: str) -> str:
         # parse single service or first service (for merged services)
         # return service name
