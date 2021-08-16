@@ -198,7 +198,9 @@ def main():
         return -1
 
     sconfig = load_solution_configuration(args.basepath)
-    rconfig = RunConfiguration(**(sconfig.dict() | {'endpoint': endpoint}))
+    params = sconfig.dict()
+    params.update({'endpoint': endpoint})
+    rconfig = RunConfiguration(**params)
     observe_initialize_run(rconfig)
 
 if __name__ == '__main__':
