@@ -31,7 +31,7 @@ import traceback
 import threading
 import grpc
 from orchestrator_pb2 import OrchestrationObservationConfiguration
-from typing import List
+from typing import List, Optional
 
 # TODO make this configurable in an upcoming version
 DEFAULT_QUEUE_SIZE = 0
@@ -74,6 +74,14 @@ class SolutionConfiguration:
 
 class RunConfiguration(SolutionConfiguration):
     endpoint: str
+    observer_componentfilter: Optional[str]
+    observer_namefilter: Optional[str]
+    message_display: bool
+
+    def __init__(self, **kwargs):
+        self.observer_componentfilter = None
+        self.observer_namefilter = None
+        super().__init__(**kwargs)
 
 
 def readfile(path) -> str:
@@ -119,19 +127,18 @@ def load_solution_configuration(basepath: str) -> SolutionConfiguration:
 
 
 class OrchestrationObserver(threading.Thread):
-    def __init__(self, endpoint):
+    def __init__(self, endpoint: str, message_display: bool, server_configuration: OrchestrationObservationConfiguration):
         super().__init__(daemon=False)
         self.endpoint = endpoint
-        self.configuration = OrchestrationObservationConfiguration(
-            event_regex=r'.*',
-            component_regex=r'.*'
-        )
+        self.message_display = message_display
+        assert isinstance(server_configuration, OrchestrationObservationConfiguration)
+        self.server_configuration = server_configuration
 
     def run(self):
         try:
             channel = grpc.insecure_channel(self.endpoint)
             stub = orchestrator_pb2_grpc.OrchestratorStub(channel)
-            for event in stub.observe(self.configuration):
+            for event in stub.observe(self.server_configuration):
 
                 # omit event.run because we do not use it yet
                 if event.name == 'exception':
@@ -142,11 +149,20 @@ class OrchestrationObserver(threading.Thread):
 
                 else:
 
+                    if self.message_display:
+                        display_detail = event.detail
+                    else:
+                        display_detail = {
+                            k: v
+                            for k, v in event.detail.items()
+                            if k not in 'message'
+                        }
+
                     # generic display
                     detailstr = ''
-                    if len(event.detail) > 0:
+                    if len(display_detail) > 0:
                         detailstr = ' with details ' + ' '.join(
-                            [f"{k}={repr(v)}" for k, v in event.detail.items()]
+                            [f"{k}={repr(v)}" for k, v in display_detail.items()]
                         )
                     print("%s produced event '%s'%s" % (event.component, event.name, detailstr))
 
@@ -159,11 +175,11 @@ class OrchestrationObserver(threading.Thread):
             logging.error("observer thread terminated with exception: %s", traceback.format_exc())
 
 
-def observe(endpoint: str) -> threading.Thread:
+def observe(endpoint: str, message_display, server_configuration) -> threading.Thread:
     '''
     create observer thread and start
     '''
-    oot = OrchestrationObserver(endpoint)
+    oot = OrchestrationObserver(endpoint, message_display, server_configuration)
     oot.start()
     return oot
 
@@ -174,7 +190,11 @@ def observe_initialize_run(config: RunConfiguration):
     stub = orchestrator_pb2_grpc.OrchestratorStub(channel)
 
     logging.info("creating observer")
-    oot = observe(config.endpoint)
+    server_configuration = OrchestrationObservationConfiguration(
+        name_regex='.*' if config.observer_namefilter is None else config.observer_namefilter,
+        component_regex='.*' if config.observer_componentfilter is None else config.observer_componentfilter
+    )
+    oot = observe(config.endpoint, config.message_display, server_configuration)
 
     logging.info("calling initialize")
     stub.initialize(orchestrator_pb2.OrchestrationConfiguration(
@@ -212,6 +232,15 @@ def main():
     ap.add_argument(
         '-b', '--basepath', type=str, required=False, metavar='BASEPATH', action='store',
         dest='basepath', help='The path where dockerinfo.json, blueprint.json, and pipelineprotos.zip can be found.')
+    ap.add_argument(
+        '--messages', action='store_true',
+        dest='messages', help='Display all messages during orchestration (otherwise message contents are hidden).')
+    ap.add_argument(
+        '-n', '--filtername', type=str, required=False, metavar='REGEX', action='store',
+        dest='filtername', help='Regular expression for filtering events according to event.name (server-side). Default = ".*" (display all).')
+    ap.add_argument(
+        '-c', '--filtercomponent', type=str, required=False, metavar='REGEX', action='store',
+        dest='filtercomponent', help='Regular expression for filtering events according to event.component (server-side). Default = ".*" (display all).')
     args = ap.parse_args()
 
     endpoint = args.endpoint
@@ -224,7 +253,7 @@ def main():
 
     sconfig = load_solution_configuration(args.basepath)
     params = sconfig.dict()
-    params.update({'endpoint': endpoint})
+    params.update({'endpoint': endpoint, 'message_display': args.messages, 'observer_namefilter': args.filtername, 'observer_componentfilter': args.filtercomponent})
     rconfig = RunConfiguration(**params)
     observe_initialize_run(rconfig)
 

@@ -12,11 +12,23 @@ There is an Orchestrator Client (directory `orchestrator_client`) for controllin
 
 # How to use
 
-Run the orchestrator via `./scripts/run-orchestrator.sh`.
-Run the client via `./scripts/run-client.sh`.
-This will use a sample solution in directory `./sample/`.
+## Without Docker (for development)
 
-Generally the solution is created by the kubernetes-client of AI4EU Experiments platform, triggered in the platform with the button `Deploy to local` in each solution.
+* Run the orchestrator via `./scripts/run-orchestrator.sh`.
+* Run the client via `./scripts/run-client.sh`.
+* This will use a sample solution in directory `./sample/`.
+
+## With Docker (for development)
+
+* Build container via `./scripts/docker-build.sh`.
+* Remove potential previous containers via `./scripts/docker-remove.sh`
+* Start container and follow log via `./scripts/docker-run.sh`.
+
+## In the Ai4EU Experiments Platform
+
+The solution is created by the kubernetes-client of AI4EU Experiments platform, triggered in the platform with the button `Deploy to local` in each solution.
+
+This automatically starts a POD with the orchestrator. You only need to use the client that is shipped with the `solution.zip`.
 
 Orchestrator client usage:
 

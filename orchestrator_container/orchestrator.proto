@@ -19,7 +19,7 @@ message OrchestrationStatus {
 }
 
 message OrchestrationObservationConfiguration {
-    string event_regex = 1; // filter for type of event
+    string name_regex = 1; // filter for name of event
     string component_regex = 2; // filter for component of event
 }
 

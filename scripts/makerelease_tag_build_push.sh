@@ -20,7 +20,7 @@ git tag $VERSION
 docker build \
     -t parallel-orchestrator:$VERSION \
     -t $REMOTE_BASE_PATH:$VERSION \
-    -f Dockerfile .
+    -f orchestrator_container/Dockerfile orchestrator_container
 
 docker push $REMOTE_BASE_PATH:$VERSION
 

@@ -24,8 +24,10 @@ RUN set -ex \
     && apt-get autoremove -y \
     && apt-get clean -y
 
-COPY orchestrator_container/src /app
-COPY orchestrator_container/orchestrator.proto /app
+COPY src ./
+COPY orchestrator.proto ./
+
+RUN pipenv run python -m grpc_tools.protoc --python_out=/app/ --proto_path=/app/ --grpc_python_out=/app/ /app/orchestrator.proto
 
 RUN find /app
 

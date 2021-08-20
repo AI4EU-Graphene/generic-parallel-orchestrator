@@ -1,5 +1,5 @@
 import concurrent.futures
-import grpc
+import re
 import json
 import logging
 import os
@@ -7,6 +7,7 @@ import queue
 import time
 import traceback
 from typing import Generator
+import grpc
 
 import orchestrator_pb2
 import orchestrator_pb2_grpc
@@ -160,6 +161,9 @@ class OrchestratorServicerImpl(orchestrator_pb2_grpc.OrchestratorServicer):
         try:
             logging.info("OSI observe %s", request)
 
+            namefilter = re.compile(request.name_regex)
+            componentfilter = re.compile(request.component_regex)
+
             # exit if the connection dies
             while context.is_active():
 
@@ -168,15 +172,16 @@ class OrchestratorServicerImpl(orchestrator_pb2_grpc.OrchestratorServicer):
                     oevt = self.event_queue.get(block=True, timeout=1.0)
 
                     # create yield event
-                    logging.warning("event is %s", oevt)
-                    yevt = orchestrator_pb2.OrchestrationEvent(
-                        run=oevt.run,
-                        name=oevt.name,
-                        component=oevt.component,
-                        detail=oevt.detail,
-                    )
-                    logging.debug("OSI observe yielding %s", yevt)
-                    yield yevt
+                    logging.debug("OSI event %s", oevt)
+                    if namefilter.match(oevt.name) and componentfilter.match(oevt.component):
+                        yevt = orchestrator_pb2.OrchestrationEvent(
+                            run=oevt.run,
+                            name=oevt.name,
+                            component=oevt.component,
+                            detail=oevt.detail,
+                        )
+                        logging.debug("OSI observe yielding %s", yevt)
+                        yield yevt
 
                 except queue.Empty:
                     pass
