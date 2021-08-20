@@ -31,7 +31,6 @@ import traceback
 import threading
 import grpc
 from orchestrator_pb2 import OrchestrationObservationConfiguration
-from pydantic import BaseModel
 from typing import List
 
 # TODO make this configurable in an upcoming version
@@ -57,10 +56,20 @@ except:
     logging.info("successfully imported orchestrator_pb2  and orchestrator_pb2_grpc after compiling!")
 
 
-class SolutionConfiguration(BaseModel):
+class SolutionConfiguration:
     blueprint_path: str
     dockerinfo_path: str
     protofiles_paths: List[str]
+
+    def __init__(self, **kwargs):
+        for k, v in kwargs.items():
+            setattr(self, k, v)
+
+    def dict(self):
+        return {
+            attr: getattr(self, attr)
+            for attr in ['blueprint_path', 'dockerinfo_path', 'protofiles_paths']
+        }
 
 
 class RunConfiguration(SolutionConfiguration):
