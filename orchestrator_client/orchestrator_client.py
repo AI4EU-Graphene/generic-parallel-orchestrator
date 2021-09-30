@@ -251,7 +251,11 @@ def main():
         ap.print_help()
         return -1
 
-    sconfig = load_solution_configuration(args.basepath)
+    basepath = args.basepath
+    if basepath is None:
+        basepath = os.getcwd()
+
+    sconfig = load_solution_configuration(basepath)
     params = sconfig.dict()
     params.update({'endpoint': endpoint, 'message_display': args.messages, 'observer_namefilter': args.filtername, 'observer_componentfilter': args.filtercomponent})
     rconfig = RunConfiguration(**params)
