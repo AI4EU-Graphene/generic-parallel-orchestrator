@@ -76,7 +76,7 @@ class OrchestratorServicerImpl(orchestrator_pb2_grpc.OrchestratorServicer):
 
     def initialize(self, request: orchestrator_pb2.OrchestrationConfiguration, context) -> orchestrator_pb2.OrchestrationStatus:
         try:
-            logging.info("OSI initialize %s", request)
+            logging.info("initialize %s", request)
 
             # do a clean start
             self._kill_threads_remove_queues()
@@ -98,19 +98,7 @@ class OrchestratorServicerImpl(orchestrator_pb2_grpc.OrchestratorServicer):
             import all_in_one_pb2_grpc
             self.om = othread.OrchestrationManager(all_in_one_pb2, all_in_one_pb2_grpc, observer=self.observer)
 
-            # create a queue for each link
-            self.observer.event(Event(name='create_queues', component='orchestrator', detail={}))
-            self.queues = {}
-            for link in links:
-                # identifier
-                linkid = link.identifier()
-                logging.debug("creating queue for link %s", linkid)
-                assert linkid not in self.queues, 'linkid must be unique in the solution'
-
-                # create
-                self.queues[linkid] = self.om.create_queue(name=linkid, message=link.message_name)
-
-            # create one thread for each rpc
+            # create one thread for each rpc with an input queue
             self.observer.event(Event(name='create_threads', component='orchestrator', detail={}))
             self.threads = {}
             for rpc in rpcs:
@@ -120,7 +108,7 @@ class OrchestratorServicerImpl(orchestrator_pb2_grpc.OrchestratorServicer):
                 assert rpcid not in self.threads, 'rpcid must be unique in the solution'
 
                 # create
-                self.threads[rpcid] = self.om.create_thread(
+                t = self.om.create_thread(
                     stream_in=rpc.input.stream,
                     stream_out=rpc.output.stream,
                     empty_in=rpc.input.name == 'Empty',
@@ -130,20 +118,32 @@ class OrchestratorServicerImpl(orchestrator_pb2_grpc.OrchestratorServicer):
                     rpc=rpc.operation,
                 )
 
-            # register each queue in an output and an input thread
+                # create queue and attach
+                q = self.om.create_queue(name=rpcid, message=rpc.input.name)
+                t.attach_input_queue(q)
+
+                # register thread
+                self.threads[rpcid] = t
+
+            # for each link, add input queue of receiver to list of output queues of sender
             self.observer.event(Event(name='register_queues', component='orchestrator', detail={}))
             for link in links:
-                # get queue and threads
-                queue = self.queues[link.identifier()]
+                # input/output is seen differently from link and thread perspective!
+                # the input of the link is the output of a thread
+                # the output of the link is the input of a thread
+                # here we use the link perspective
+
+                # threads
                 input_from_rpcid = link.input.identifier()
-                output_to_rpcid = link.output.identifier()
                 input_thread = self.threads[input_from_rpcid]
+                output_to_rpcid = link.output.identifier()
                 output_thread = self.threads[output_to_rpcid]
 
-                # the output from some thread is the input for the queue
+                # each thread at the output of a link has one input queue
+                queue = output_thread.input_queue
+
+                # we connect the output of a thread at the input of the queue to the queue
                 input_thread.attach_output_queue(queue)
-                # the output of the queue is the input for another thread
-                output_thread.attach_input_queue(queue)
 
             self.observer.event(Event(name='initialized', component='orchestrator', detail={}))
 

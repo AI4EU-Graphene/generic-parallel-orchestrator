@@ -132,10 +132,11 @@ class OrchestrationThreadBase(threading.Thread):
         self.observer = observer
         self.empty_in = empty_in
         self.empty_out = empty_out
+
         self.shall_terminate = False
 
         self.input_queue = None
-        self.output_queue = None
+        self.output_queues = []
 
         self.channel = None
 
@@ -165,16 +166,16 @@ class OrchestrationThreadBase(threading.Thread):
         connect input queue
         '''
         if self.input_queue is not None:
-            raise RuntimeError("cannot attach two input queues to thread " + str(self))
+            raise RuntimeError("cannot attach more than one queue to thread %s" % str(self))
         self.input_queue = q
 
     def attach_output_queue(self, q: OrchestrationQueue):
         '''
         connect output queue
         '''
-        if self.output_queue is not None:
-            raise RuntimeError("cannot attach two output queues to thread " + str(self))
-        self.output_queue = q
+        if q in self.output_queues:
+            raise RuntimeError("cannot attach the same queue %s twice to thread %s" % (str(q), str(self)))
+        self.output_queues.append(q)
 
     def _wait_for_or_create_input(self):
         in_message = None
@@ -192,7 +193,9 @@ class OrchestrationThreadBase(threading.Thread):
 
     def _distribute_or_ignore_output(self, out_message):
         if not self.empty_out:
-            self.output_queue.add(out_message)
+            # distribute message to all output queues
+            for oq in self.output_queues:
+                oq.add(out_message)
 
     def __str__(self):
         return f'OrchestrationThreadBase[svc={self.servicename},rpc={self.rpcname}]'
