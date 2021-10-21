@@ -230,10 +230,12 @@ class Core:
                     operation=sig['operation_name'],
                     input=MessageInfo(
                         name=sig['input_message_name'],
-                        stream=sig['input_message_stream']),
+                        # default because older versions of Design Studio did not contain this information
+                        stream=sig.get('input_message_stream', False)),
                     output=MessageInfo(
                         name=sig['output_message_name'],
-                        stream=sig['output_message_stream']),
+                        # default because older versions of Design Studio did not contain this information
+                        stream=sig.get('output_message_stream', False)),
                     incoming=[],
                     outgoing=[])
 
