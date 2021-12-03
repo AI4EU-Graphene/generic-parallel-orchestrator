@@ -109,6 +109,7 @@ class OrchestratorServicerImpl(orchestrator_pb2_grpc.OrchestratorServicer):
 
                 # create
                 t = self.om.create_thread(
+                    component=rpc.node.container_name,
                     stream_in=rpc.input.stream,
                     stream_out=rpc.output.stream,
                     empty_in=rpc.input.name == 'Empty',
@@ -118,9 +119,14 @@ class OrchestratorServicerImpl(orchestrator_pb2_grpc.OrchestratorServicer):
                     rpc=rpc.operation,
                 )
 
-                # create queue and attach
-                q = self.om.create_queue(name=rpcid, message=rpc.input.name)
-                t.attach_input_queue(q)
+
+                if rpc.input.name != 'Empty':
+                    # create input queue and attach
+                    q = self.om.create_queue(
+                        name=rpcid,
+                        message=rpc.input.name,
+                    )
+                    t.attach_input_queue(q)
 
                 # register thread
                 self.threads[rpcid] = t
@@ -135,8 +141,9 @@ class OrchestratorServicerImpl(orchestrator_pb2_grpc.OrchestratorServicer):
 
                 # threads
                 input_from_rpcid = link.input.identifier()
-                input_thread = self.threads[input_from_rpcid]
                 output_to_rpcid = link.output.identifier()
+
+                input_thread = self.threads[input_from_rpcid]
                 output_thread = self.threads[output_to_rpcid]
 
                 # each thread at the output of a link has one input queue

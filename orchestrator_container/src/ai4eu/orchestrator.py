@@ -286,6 +286,7 @@ class Core:
 def test_orchestrator(blueprint: str, dockerinfo: str, protofiles: Dict[str, str]):
     '''
     directly run the orchestrator with given files
+    TODO this is duplicate code with orchestratorservice.py - outsource into somewhere!
     '''
     bpjson = json.loads(blueprint)
     dijson = json.loads(dockerinfo)
@@ -302,27 +303,17 @@ def test_orchestrator(blueprint: str, dockerinfo: str, protofiles: Dict[str, str
     import all_in_one_pb2_grpc
     om = othread.OrchestrationManager(all_in_one_pb2, all_in_one_pb2_grpc)
 
-    # create a queue for each link
-    queues = {}
-    for link in links:
-        # identifier
-        linkid = link.identifier()
-        logging.debug("creating queue for link %s", linkid)
-        assert linkid not in queues, 'linkid must be unique in the solution'
-
-        # create
-        queues[linkid] = om.create_queue(name=linkid, message=link.message_name)
-
-    # create one thread for each rpc
+    # create one thread and one input queue for each rpc, unless it has input empty
     threads = {}
+    queues = {}
     for rpc in rpcs:
-        # identifier
+        # identifier for both thread and its input queue
         rpcid = rpc.identifier()
         logging.debug("creating thread for rpc %s", rpcid)
         assert rpcid not in threads, 'rpcid must be unique in the solution'
 
-        # create
         threads[rpcid] = om.create_thread(
+            component=rpc.node.container_name,
             stream_in=rpc.input.stream,
             stream_out=rpc.output.stream,
             empty_in=rpc.input.name == 'Empty',
@@ -332,19 +323,31 @@ def test_orchestrator(blueprint: str, dockerinfo: str, protofiles: Dict[str, str
             rpc=rpc.operation,
         )
 
+        if rpc.input.name != 'Empty':
+            # input queue for this thread
+            queues[rpcid] = om.create_queue(
+                name=rpcid,
+                message=rpc.input.name,
+            )
+            
+            # attach queue to input of thread
+            threads[rpcid].attach_input_queue(queues[rpcid])
+
     # register each queue in an output and an input thread
+    # input thread = messages come IN from there into this link
+    # output thread = messages go OUT to there from this link
     for link in links:
-        # get queue and threads
-        queue = queues[link.identifier()]
+        # get relevant identifiers
         input_from_rpcid = link.input.identifier()
         output_to_rpcid = link.output.identifier()
-        input_thread = threads[input_from_rpcid]
-        output_thread = threads[output_to_rpcid]
 
-        # the output from some thread is the input for the queue
-        input_thread.attach_output_queue(queue)
-        # the output of the queue is the input for another thread
-        output_thread.attach_input_queue(queue)
+        # from which thread
+        input_thread = threads[input_from_rpcid]
+        # into which thread's queue
+        queue_to_feed = queues[output_to_rpcid]
+
+        # the output from some thread is fed into the queue
+        input_thread.attach_output_queue(queue_to_feed)
 
     om.orchestrate_forever()
 

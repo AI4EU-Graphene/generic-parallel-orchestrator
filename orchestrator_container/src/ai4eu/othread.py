@@ -115,6 +115,7 @@ class OrchestrationThreadBase(threading.Thread):
 
     def __init__(
         self,
+        component: str,  # for identification purposes
         host: str, port: int,
         protobuf_module, grpc_module,
         servicename: str, rpcname: str,
@@ -123,6 +124,7 @@ class OrchestrationThreadBase(threading.Thread):
     ):
         super().__init__(daemon=True)
 
+        self.component = component
         self.host = host
         self.port = port
         self.protobuf_module = protobuf_module
@@ -198,7 +200,7 @@ class OrchestrationThreadBase(threading.Thread):
                 oq.add(out_message)
 
     def __str__(self):
-        return f'OrchestrationThreadBase[svc={self.servicename},rpc={self.rpcname}]'
+        return f'OrchestrationThreadBase[component={self.component},svc={self.servicename},rpc={self.rpcname}]'
 
     def terminate(self):
         '''
@@ -354,17 +356,18 @@ class OrchestrationManager:
 
     def create_thread(
         self,
+        component: str,
         stream_in: bool, stream_out: bool,
         host: str, port: int,
         service: str, rpc: str,
         empty_in: bool = False, empty_out: bool = False,
     ) -> OrchestrationThreadBase:
 
-        name = f'{service}.{rpc}'
+        name = f'{component}/{service}.{rpc}'
         assert(name not in self.threads)
 
         Thread_type = self.THREAD_TYPES[(stream_in, stream_out)]
-        t = Thread_type(host, port, self.protobuf_module, self.grpc_module, service, rpc, self.observer, empty_in, empty_out)
+        t = Thread_type(component, host, port, self.protobuf_module, self.grpc_module, service, rpc, self.observer, empty_in, empty_out)
         self.threads[name] = t
 
         return t
