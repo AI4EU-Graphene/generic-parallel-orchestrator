@@ -54,7 +54,6 @@ class OrchestratorServicerImpl(orchestrator_pb2_grpc.OrchestratorServicer):
             logging.error("terminate orch")
             self.om.terminate_orchestration()
 
-        logging.error("del thread")
         if len(self.threads) > 0:
             self.observer.event(Event(name='delete_threads', component='orchestrator', detail={}))
             for tid, t in list(self.threads.items()):
@@ -63,7 +62,6 @@ class OrchestratorServicerImpl(orchestrator_pb2_grpc.OrchestratorServicer):
                 del(self.threads[tid])
         assert len(self.threads) == 0
 
-        logging.error("del queue")
         if len(self.queues) > 0:
             self.observer.event(Event(name='delete_queues', component='orchestrator', detail={}))
             for qid, q in list(self.queues.items()):
