@@ -257,28 +257,28 @@ class Core:
                 for lp in link_partial
                 if lp['output_node'] == rpc.node and lp['output_operation'] == rpc.operation]
 
-            expected_incoming_links = 1
+            expected_incoming_links = None
             if rpc.input.name == 'Empty':
                 expected_incoming_links = 0
-            if len(incoming_links) != expected_incoming_links:
+            if expected_incoming_links is not None and len(incoming_links) != expected_incoming_links:
                 raise RuntimeError((
-                    "unexpected situation: encountered %d incoming links for rpc %s "
-                    "with input type %s while trying to interlink rpcs (expect %d): %s") % (
-                        len(incoming_links), repr(rpc),
+                    "unexpected situation: encountered %d incoming links for container=%s/service=%s/rpc=%s "
+                    "with input type %s while trying to interlink rpcs (expect %s):\nincoming_links=%s") % (
+                        len(incoming_links),
+                        rpc.node.container_name, rpc.node.service_name, rpc.operation,
                         rpc.input.name, expected_incoming_links, repr(incoming_links)))
 
-            if expected_incoming_links > 0:
-                incoming = incoming_links[0]
+            if expected_incoming_links is None or expected_incoming_links > 0:
+                for incoming in incoming_links:
+                    link = LinkInfo(
+                        input=incoming['input'],
+                        output=rpc,
+                        message_name=incoming['message_name'])
+                    self.links.append(link)
 
-                link = LinkInfo(
-                    input=incoming['input'],
-                    output=rpc,
-                    message_name=incoming['message_name'])
-                self.links.append(link)
-
-                # register link in RPCs
-                link.input.outgoing.append(link)
-                link.output.incoming.append(link)
+                    # register link in RPCs
+                    link.input.outgoing.append(link)
+                    link.output.incoming.append(link)
 
         return self.rpcs, self.links
 
