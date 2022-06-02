@@ -47,6 +47,7 @@ class OrchestratorServicerImpl(orchestrator_pb2_grpc.OrchestratorServicer):
         self.om = None
         self.threads = {}
         self.queues = {}
+        self.status = orchestrator_pb2.OrchestrationStatus(message="not initialized")
 
     def _kill_threads_remove_queues(self):
         if self.om is not None:
@@ -71,12 +72,14 @@ class OrchestratorServicerImpl(orchestrator_pb2_grpc.OrchestratorServicer):
         self.oc = None
         self.om = None
 
+    def get_status_string(self):
+        return f'message: {self.status.message} - active_threads: {self.status.active_threads} - success: {self.status.success} - code: {self.status.code}'
 
     def initialize(self, request: orchestrator_pb2.OrchestrationConfiguration, context) -> orchestrator_pb2.OrchestrationStatus:
         try:
             logging.info("initialize %s", request)
-
             # do a clean start
+            self.status = orchestrator_pb2.OrchestrationStatus(message="initializing...")
             self._kill_threads_remove_queues()
 
             # interpret input jsons
@@ -152,15 +155,22 @@ class OrchestratorServicerImpl(orchestrator_pb2_grpc.OrchestratorServicer):
 
             self.observer.event(Event(name='initialized', component='orchestrator', detail={}))
 
+            self.status.success = False
+            self.status.code = 0
+            self.status.message = "initialized"
+            self.active_threads = len(self.threads)
+
+
         except Exception as e:
             logging.info("OSI initialize exception: %s", traceback.format_exc())
             self.observer.event(Event(name='exception', component='orchestrator', detail={'method': 'initialize', 'traceback': traceback.format_exc()}))
+            self.status.success = False
+            self.status.code = -1
+            self.status.message = "OSI initialize exception: "+traceback.format_exc()
+            self.active_threads = len(self.threads)
 
-        ret = orchestrator_pb2.OrchestrationStatus(
-            # TODO
-        )
-        logging.info("OSI initialize returning %s", ret)
-        return ret
+        logging.info("OSI initialize returning %s", self.status)
+        return self.status
 
     def observe(self, request: orchestrator_pb2.OrchestrationObservationConfiguration, context) -> Generator[orchestrator_pb2.OrchestrationEvent, None, None]:
         try:
@@ -196,28 +206,30 @@ class OrchestratorServicerImpl(orchestrator_pb2_grpc.OrchestratorServicer):
             logging.info("OSI observe exception: %s", traceback.format_exc())
 
     def run(self, request: orchestrator_pb2.RunLabel, context) -> orchestrator_pb2.OrchestrationStatus:
-        ret = None
         try:
             logging.info("OSI run %s", request)
 
             self.om.start_orchestration()
 
-            ret = orchestrator_pb2.OrchestrationStatus(
-                success=True,
-                code=0,
-                message='success',
-            )
+            self.status.success = False
+            self.status.code = 0
+            self.status.message = "running"
+            self.active_threads = len(self.threads)
 
         except Exception as e:
             logging.info("OSI run exception: %s", traceback.format_exc())
-            ret = orchestrator_pb2.OrchestrationStatus(
-                success=False,
-                code=-1,
-                message=traceback.format_exc(),
-            )
+            self.status.success = False
+            self.status.code = -1
+            self.status.message = "OSI run exception: "+traceback.format_exc()
+            self.active_threads = len(self.threads)
 
-        logging.info("OSI run returning %s", ret)
-        return ret
+        logging.info("OSI run returning %s", self.status)
+        return self.status
+
+    def get_status(self, request: orchestrator_pb2.RunLabel, context) -> orchestrator_pb2.OrchestrationStatus:
+        self.status.active_threads = len(self.threads)
+        logging.info("OSI get_status returning %s", self.get_status_string())
+        return self.status
 
 
 configfile = os.environ['CONFIG'] if 'CONFIG' in os.environ else "config.json"
