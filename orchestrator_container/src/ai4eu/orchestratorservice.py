@@ -169,7 +169,7 @@ class OrchestratorServicerImpl(orchestrator_pb2_grpc.OrchestratorServicer):
             self.status.message = "OSI initialize exception: "+traceback.format_exc()
             self.active_threads = len(self.threads)
 
-        logging.info("OSI initialize returning %s", self.status)
+        logging.info("OSI initialize returning %s", self.get_status_string())
         return self.status
 
     def observe(self, request: orchestrator_pb2.OrchestrationObservationConfiguration, context) -> Generator[orchestrator_pb2.OrchestrationEvent, None, None]:
@@ -223,7 +223,7 @@ class OrchestratorServicerImpl(orchestrator_pb2_grpc.OrchestratorServicer):
             self.status.message = "OSI run exception: "+traceback.format_exc()
             self.active_threads = len(self.threads)
 
-        logging.info("OSI run returning %s", self.status)
+        logging.info("OSI run returning %s", self.get_status_string())
         return self.status
 
     def get_status(self, request: orchestrator_pb2.RunLabel, context) -> orchestrator_pb2.OrchestrationStatus:
