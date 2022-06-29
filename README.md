@@ -1,5 +1,7 @@
 # generic-parallel-orchestrator
 
+This repository has been moved to https://gitlab.eclipse.org/eclipse/graphene/generic-parallel-orchestrator
+
 Orchestrator with support for streaming, RPC, and seamless conversion between the two, based on a queued multithreading architecture.
 
 Enables streaming/event-based communication in addition to RPC calls.
