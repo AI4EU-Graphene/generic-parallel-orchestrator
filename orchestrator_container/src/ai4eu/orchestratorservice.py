@@ -36,7 +36,7 @@ class QueueOrchestrationObserver(OrchestrationObserver):
         self.queue.put(evt)
 
 
-class OrchestratorServicerImpl(orchestrator_pb2_grpc.OrchestratorServicer):
+class OrchestratorImpl(orchestrator_pb2_grpc.OrchestratorServicer):
     def __init__(self):
         super().__init__()
 
@@ -251,11 +251,14 @@ grpcserver = grpc.server(
         ('grpc.http2.min_ping_interval_without_data_ms', 1000), # allow pings without data every second
     )
 )
-orchestrator_pb2_grpc.add_OrchestratorServicer_to_server(OrchestratorServicerImpl(), grpcserver)
+orchestrator_pb2_grpc.add_OrchestratorServicer_to_server(OrchestratorImpl(), grpcserver)
 grpcport = config.get('grpcport', 8061)
 # listen on all interfaces (otherwise docker cannot export)
 grpcserver.add_insecure_port('0.0.0.0:'+str(grpcport))
 logging.info("starting Orchestrator gRPC server at port %d", grpcport)
+for handler in grpcserver._state.generic_handlers:
+    for method in handler._method_handlers:
+        logging.info(f"Registered gRPC method: {method}")
 grpcserver.start()
 
 while True:

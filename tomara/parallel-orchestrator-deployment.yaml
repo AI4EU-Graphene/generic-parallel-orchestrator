@@ -1,0 +1,21 @@
+
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: parallel-orchestrator
+spec:
+  replicas: 3
+  selector:
+    matchLabels:
+      app: parallel-orchestrator
+  template:
+    metadata:
+      labels:
+        app: parallel-orchestrator
+    spec:
+      containers:
+        - name: orchestrator
+          image: parallel-orchestrator:local
+          imagePullPolicy: Never
+          ports:
+            - containerPort: 8061
