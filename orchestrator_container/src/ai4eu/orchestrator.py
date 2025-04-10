@@ -13,5 +13,9 @@ def serve():
     server.start()
     server.wait_for_termination()
 
+class Core:
+    def __init__(self):
+        print("⚙️ Dummy Core class initialized")
+
 if __name__ == "__main__":
     serve()

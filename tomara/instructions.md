@@ -25,7 +25,7 @@ Dockerfile at path : orchestrator_container\Dockerfile
 ## Step 3: Build & Push the Docker Image
 
 ```sh
-docker build -t parallel-orchestrator .\orchestrator_container\
+docker build --no-cache -t parallel-orchestrator:latest -f orchestrator_container/Dockerfile .
 
 #### output ####
 [+] Building 1.1s (15/15) FINISHED                                                                                                                             docker:desktop-linux
@@ -217,7 +217,7 @@ pip install grpcio grpcio-tools
 If `orchestrator_pb2.py` and `orchestrator_pb2_grpc.py` are not present, generate them from your `.proto` file:
 
 ```bash
-python -m grpc_tools.protoc --proto_path=tomara --python_out=tomara --grpc_python_out=tomara orchestrator.proto
+python -m grpc_tools.protoc --proto_path=./ --python_out=./ --grpc_python_out=./ orchestrator.proto
 ```
 
 This will create the `*_pb2.py` files needed by the Python client.
@@ -371,6 +371,17 @@ service/parallel-orchestrator-service   LoadBalancer   10.106.159.112   localhos
 ### run orchestrator 
 
 ```bash
+kubectl logs deployment/parallel-orchestrator
+>>
+Found 3 pods, using pod/parallel-orchestrator-754587bd7-th7q9
+INFO:root:loading config from config.json
+WARNING:root:using empty config (=defaults) because [Errno 2] No such file or directory: 'config.json'
+INFO:root:starting Orchestrator gRPC server at port 8061
+INFO:root:Registered gRPC method: /ai4eu.orchestrator.Orchestrator/get_status  
+INFO:root:Registered gRPC method: /ai4eu.orchestrator.Orchestrator/initialize  
+INFO:root:Registered gRPC method: /ai4eu.orchestrator.Orchestrator/run
+INFO:root:Registered gRPC method: /ai4eu.orchestrator.Orchestrator/observe
+
 #### Port forward in terminal the parallel orchestrator service 
 kubectl port-forward svc/parallel-orchestrator-service 5000:8080
 >>
@@ -383,4 +394,39 @@ Now the next command you need to run in path : `EnergyConsumption-WP3.1\solution
 ```bash
 #### Open another terminal in parallel
 python orchestrator_client.py -H localhost -p 5000 -b ../
+```
+
+### check logs 
+
+```bash
+ kubectl logs deployment/parallel-orchestrator
+>> 
+Found 3 pods, using pod/parallel-orchestrator-56db584d5c-cq642
+INFO:root:loading config from config.json
+WARNING:root:using empty config (=defaults) because [Errno 2] No such file or directory: 'config.json'
+INFO:root:starting Orchestrator gRPC server at port 8061
+INFO:root:Registered gRPC method: /Orchestrator/initialize
+INFO:root:Registered gRPC method: /Orchestrator/observe
+INFO:root:Registered gRPC method: /Orchestrator/run
+INFO:root:Registered gRPC method: /Orchestrator/get_status
+INFO:root:OSI observe name_regex: ".*"
+component_regex: ".*"
+
+INFO:root:initialize blueprint: "{\"nodes\":[{\"proto_uri\":\"org\\/acumos\\/63e6a410-f1cc-4989-8899-44ddc38f9d74\\/energy-databroker\\/1.0.0\\/energy-databroker-1.0.0.proto\",\"image\":\"docker.io\\/aditya2277\\/energy-databroker:latest\",\"node_type\":\"MLModel\",\"container_name\":\"energy-databroker1\",\"operation_signature_list\":[{\"connected_to\":[{\"container_name\":\"energy-training1\",\"operation_signature\":{\"operation_name\":\"trainmodel\"}}],\"operation_signature\":{\"operation_name\":\"energydatabroker\",\"output_message_name\":\"TrainRequest\",\"input_message_name\":\"Empty\",\"output_message_stream\":false,\"input_message_stream\":false}}]},{\"proto_uri\":\"org\\/acumos\\/37f8afdc-426b-4699-8ae7-04af295c5b2b\\/energy-training\\/1.0.0\\/energy-training-1.0.0.proto\",\"image\":\"docker.io\\/aditya2277\\/energy-training:latest\",\"node_type\":\"MLModel\",\"container_name\":\"energy-training1\",\"operation_signature_list\":[{\"connected_to\":[],\"operation_signature\":{\"operation_name\":\"trainmodel\",\"output_message_name\":\"TrainResponse\",\"input_message_name\":\"TrainRequest\",\"output_message_stream\":false,\"input_message_stream\":false}}]},{\"proto_uri\":\"org\\/acumos\\/cd6fd817-b839-47da-a074-e1298cb66d9d\\/energy-prediction\\/1.0.0\\/energy-prediction-1.0.0.proto\",\"image\":\"docker.io\\/aditya2277\\/energy-prediction:latest\",\"node_type\":\"MLModel\",\"container_name\":\"energy-prediction1\",\"operation_signature_list\":[]}],\"name\":\"energy-predictor\",\"pipeline_id\":\"1047a39c-2ebe-11ea-bbf7-52ce898b1042:cfa28f59-7c83-4a43-be82-1472c823ebb5:3f645130-b9f5-4f35-9a79-e977a15cc155\",\"creation_date\":\"2025-04-04 11:55:42.634324\",\"type\":\"pipeline-topology\\/v2\",\"version\":\"1.0.0\"}"
+dockerinfo: "{\"docker_info_list\":[{\"container_name\":\"energy-databroker1\",\"ip_address\":\"energy-databroker1\",\"port\":\"8556\"},{\"container_name\":\"energy-training1\",\"ip_address\":\"energy-training1\",\"port\":\"8556\"},{\"container_name\":\"energy-prediction1\",\"ip_address\":\"energy-prediction1\",\"port\":\"8556\"},{\"container_name\":\"orchestrator\",\"ip_address\":\"orchestrator\",\"port\":\"8061\"}]}"
+protofiles {
+  key: "energy-databroker1.proto"
+  value: "syntax = \"proto3\";\n\n//Empty message for databroker\nmessage Empty {\n\n}\n\n//Define the message to hold file path for training\nmessage TrainRequest {\n  string csv_file_path = 1;\n}\n\n//Define the databroker service\nservice Databroker {\n    rpc energydatabroker(Empty) returns (TrainRequest);\n}"
+}
+protofiles {
+  key: "energy-prediction1.proto"
+  value: "//Define the used version of proto\nsyntax = \"proto3\";\n\nmessage Prediction {\n    float EnergyConsumption = 1;\n}\n\n//Define a message to hold the features input by the client\nmessage Features {\n    string BuildingType      = 1 ;\n    float SquareFootage      = 2 ;\n    float NumberofOccupants  = 3 ;\n    float AppliancesUsed     = 4 ;\n    float AverageTemperature = 5 ;\n    string DayofWeek         = 6 ;\n}\n\n\n//Define the service\nservice Predict {\n    rpc predictconsumption(Features) returns (Prediction);\n}\n"
+}
+protofiles {
+  key: "energy-training1.proto"
+  value: "syntax = \"proto3\";\n\n//import energy databroker to use TrainRequest\n//import \'energy_databroker.proto\';\n\n\n//Define the message to hold file path for training\nmessage TrainRequest {\n  string csv_file_path = 1;\n}\n\n//Define the message to hold the status of training\nmessage TrainResponse {\n  string status = 1;\n}\n\n//Define the training service\nservice Training {\n    rpc trainmodel(TrainRequest) returns (TrainResponse);\n}"  
+}
+
+/root/.local/share/virtualenvs/app-4PlAip0Q/lib/python3.7/site-packages/grpc_tools/protoc.py:17: DeprecationWarning: pkg_resources is deprecated as an API. See https://setuptools.pypa.io/en/latest/pkg_resources.html
+  import pkg_resources
 ```

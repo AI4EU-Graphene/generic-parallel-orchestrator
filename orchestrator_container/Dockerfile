@@ -7,8 +7,10 @@ ENV PYTHONPATH="/app:/app/src"
 
 WORKDIR /app
 
-COPY Pipfile .
-COPY Pipfile.lock .
+COPY orchestrator_container/Pipfile .
+COPY orchestrator_container/Pipfile.lock .
+COPY orchestrator_container/src ./src
+COPY orchestrator_container/orchestrator.proto .
 
 RUN set -ex \
     && apt-get update -y \
@@ -21,8 +23,7 @@ RUN set -ex \
     && apt-get autoremove -y \
     && apt-get clean -y
 
-COPY src ./src
-COPY orchestrator.proto .
+RUN echo "=== FINAL APP STRUCTURE ===" && find /app
 
 RUN pipenv run python -m grpc_tools.protoc --python_out=/app/ --proto_path=/app/ --grpc_python_out=/app/ /app/orchestrator.proto
 
