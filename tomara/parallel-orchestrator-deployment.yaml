@@ -15,7 +15,7 @@ spec:
     spec:
       containers:
         - name: orchestrator
-          image: parallel-orchestrator:local
+          image: parallel-orchestrator:latest
           imagePullPolicy: Never
           ports:
             - containerPort: 8061
