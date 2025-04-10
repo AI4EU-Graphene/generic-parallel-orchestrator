@@ -7,9 +7,13 @@
 - Git
 - Pipenv  
   Install with:
-  ```sh
-  pip install pipenv
-  ```
+```sh
+pip install pipenv
+pip install grpcio grpcio-tools flask flask-cors dash plotly requests pandas numpy protobuf aiohttp
+pip install grpcio grpcio-tools protobuf pydantic
+pip install flask flask-cors dash plotly requests aiohttp pandas numpy
+pip install grpcio grpcio-tools protobuf pydantic
+```
 
 ## Step 1: Cloning the Repository
 
