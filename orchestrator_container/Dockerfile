@@ -1,35 +1,29 @@
-# Dockerfile for building generic-serial-orchestrator image from Ubuntu 18.04 image
 FROM debian:buster-slim
 
-ENV DEBIAN_FRONTEND noninteractive
-ENV TERM linux
-ENV PYTHONUNBUFFERED 1
-ENV PYTHONPATH /app/
+ENV DEBIAN_FRONTEND=noninteractive
+ENV TERM=linux
+ENV PYTHONUNBUFFERED=1
+ENV PYTHONPATH="/app:/app/src"
 
 WORKDIR /app
 
-COPY Pipfile ./
-COPY Pipfile.lock ./
+COPY Pipfile .
+COPY Pipfile.lock .
 
-# do this all in one to keep the image small
 RUN set -ex \
     && apt-get update -y \
-    && apt-get upgrade -y \
     && apt-get install -y --no-install-recommends \
         python3 python3-pip python3-dev build-essential protobuf-compiler \
     && python3 -m pip install pip --upgrade \
-    && python3 -m pip install pipenv setuptools --upgrade \
+    && python3 -m pip install pipenv setuptools grpcio grpcio-tools --upgrade \
     && pipenv install \
     && apt-get remove -y build-essential python3-dev \
     && apt-get autoremove -y \
     && apt-get clean -y
 
-COPY src ./
-COPY orchestrator.proto ./
+COPY src ./src
+COPY orchestrator.proto .
 
 RUN pipenv run python -m grpc_tools.protoc --python_out=/app/ --proto_path=/app/ --grpc_python_out=/app/ /app/orchestrator.proto
 
-RUN find /app
-
 CMD ["pipenv", "run", "python3", "-m", "ai4eu.orchestratorservice"]
-

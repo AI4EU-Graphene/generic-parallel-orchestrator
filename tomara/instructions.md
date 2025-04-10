@@ -132,9 +132,9 @@ spec:
   selector:
     app: parallel-orchestrator
   ports:
-    - protocol: TCP
-      port: 80
-      targetPort: 50051
+  - protocol: TCP
+    port: 8080
+    targetPort: 8061
   type: LoadBalancer
 ```
 
@@ -190,7 +190,12 @@ Note: Not using Any specific namespace as everything is running on local and we 
 Expose your orchestrator service to your local machine:
 
 ```bash
-kubectl port-forward svc/parallel-orchestrator-service 8080:80
+kubectl port-forward svc/parallel-orchestrator-service 5000:8080
+
+#### output ####
+
+Forwarding from 127.0.0.1:5000 -> 8061
+Forwarding from [::1]:5000 -> 8061
 ```
 
 > This forwards Kubernetes port `50051` (used in container) → to your local port `8080`
@@ -363,3 +368,19 @@ service/kubernetes                      ClusterIP      10.96.0.1        <none>  
 service/parallel-orchestrator-service   LoadBalancer   10.106.159.112   localhost     8080:32158/TCP   43m
 ```
 
+### run orchestrator 
+
+```bash
+#### Port forward in terminal the parallel orchestrator service 
+kubectl port-forward svc/parallel-orchestrator-service 5000:8080
+>>
+Forwarding from 127.0.0.1:5000 -> 8061
+Forwarding from [::1]:5000 -> 8061
+#### leave this opened as this will keep the parallel orchestrator in runniing state
+```
+
+Now the next command you need to run in path : `EnergyConsumption-WP3.1\solution\orchestrator_client`
+```bash
+#### Open another terminal in parallel
+python orchestrator_client.py -H localhost -p 5000 -b ../
+```
