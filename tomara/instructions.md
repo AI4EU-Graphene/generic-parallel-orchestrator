@@ -413,6 +413,42 @@ INFO:root:Registered gRPC method: /Orchestrator/initialize
 INFO:root:Registered gRPC method: /Orchestrator/observe
 INFO:root:Registered gRPC method: /Orchestrator/run
 INFO:root:Registered gRPC method: /Orchestrator/get_status
+INFO:root:initialize blueprint: "{\"nodes\":[{\"proto_uri\":\"org\\/acumos\\/63e6a410-f1cc-4989-8899-44ddc38f9d74\\/energy-databroker\\/1.0.0\\/energy-databroker-1.0.0.proto\",\"image\":\"docker.io\\/aditya2277\\/energy-databroker:latest\",\"node_type\":\"MLModel\",\"container_name\":\"energy-databroker1\",\"operation_signature_list\":[{\"connected_to\":[{\"container_name\":\"energy-training1\",\"operation_signature\":{\"operation_name\":\"trainmodel\"}}],\"operation_signature\":{\"operation_name\":\"energydatabroker\",\"output_message_name\":\"TrainRequest\",\"input_message_name\":\"Empty\",\"output_message_stream\":false,\"input_message_stream\":false}}]},{\"proto_uri\":\"org\\/acumos\\/37f8afdc-426b-4699-8ae7-04af295c5b2b\\/energy-training\\/1.0.0\\/energy-training-1.0.0.proto\",\"image\":\"docker.io\\/aditya2277\\/energy-training:latest\",\"node_type\":\"MLModel\",\"container_name\":\"energy-training1\",\"operation_signature_list\":[{\"connected_to\":[],\"operation_signature\":{\"operation_name\":\"trainmodel\",\"output_message_name\":\"TrainResponse\",\"input_message_name\":\"TrainRequest\",\"output_message_stream\":false,\"input_message_stream\":false}}]},{\"proto_uri\":\"org\\/acumos\\/cd6fd817-b839-47da-a074-e1298cb66d9d\\/energy-prediction\\/1.0.0\\/energy-prediction-1.0.0.proto\",\"image\":\"docker.io\\/aditya2277\\/energy-prediction:latest\",\"node_type\":\"MLModel\",\"container_name\":\"energy-prediction1\",\"operation_signature_list\":[]}],\"name\":\"energy-predictor\",\"pipeline_id\":\"1047a39c-2ebe-11ea-bbf7-52ce898b1042:cfa28f59-7c83-4a43-be82-1472c823ebb5:3f645130-b9f5-4f35-9a79-e977a15cc155\",\"creation_date\":\"2025-04-04 11:55:42.634324\",\"type\":\"pipeline-topology\\/v2\",\"version\":\"1.0.0\"}"
+dockerinfo: "{\"docker_info_list\":[{\"container_name\":\"energy-databroker1\",\"ip_address\":\"energy-databroker1\",\"port\":\"8556\"},{\"container_name\":\"energy-training1\",\"ip_address\":\"energy-training1\",\"port\":\"8556\"},{\"container_name\":\"energy-prediction1\",\"ip_address\":\"energy-prediction1\",\"port\":\"8556\"},{\"container_name\":\"orchestrator\",\"ip_address\":\"orchestrator\",\"port\":\"8061\"}]}"
+protofiles {
+  key: "energy-databroker1.proto"
+  value: "syntax = \"proto3\";\n\n//Empty message for databroker\nmessage Empty {\n\n}\n\n//Define the message to hold file path for training\nmessage TrainRequest {\n  string csv_file_path = 1;\n}\n\n//Define the databroker service\nservice Databroker {\n    rpc energydatabroker(Empty) returns (TrainRequest);\n}"
+}
+protofiles {
+  key: "energy-prediction1.proto"
+  value: "//Define the used version of proto\nsyntax = \"proto3\";\n\nmessage Prediction {\n    float EnergyConsumption = 1;\n}\n\n//Define a message to hold the features input by the client\nmessage Features {\n    string BuildingType      = 1 ;\n    float SquareFootage      = 2 ;\n    float NumberofOccupants  = 3 ;\n    float AppliancesUsed     = 4 ;\n    float AverageTemperature = 5 ;\n    string DayofWeek         = 6 ;\n}\n\n\n//Define the service\nservice Predict {\n    rpc predictconsumption(Features) returns (Prediction);\n}\n"
+}
+protofiles {
+  key: "energy-training1.proto"
+  value: "syntax = \"proto3\";\n\n//import energy databroker to use TrainRequest\n//import \'energy_databroker.proto\';\n\n\n//Define the message to hold file path for training\nmessage TrainRequest {\n  string csv_file_path = 1;\n}\n\n//Define the message to hold the status of training\nmessage TrainResponse {\n  string status = 1;\n}\n\n//Define the training service\nservice Training {\n    rpc trainmodel(TrainRequest) returns (TrainResponse);\n}"
+}
+
+INFO:root:OSI observe name_regex: ".*"
+component_regex: ".*"
+
+/root/.local/share/virtualenvs/app-4PlAip0Q/lib/python3.7/site-packages/grpc_tools/protoc.py:17: DeprecationWarning: pkg_resources is deprecated as an API. See https://setuptools.pypa.io/en/latest/pkg_resources.html      
+  import pkg_resources
+INFO:root:OSI initialize returning message: initialized - active_threads: 0 - success: False - code: 0
+INFO:root:OSI run
+INFO:root:OSI run returning message: running - active_threads: 0 - success: False - code: 0
+ERROR:root:Traceback (most recent call last):
+  File "/app/src/ai4eu/othread.py", line 244, in run
+    out_message = getattr(stub, self.rpcname)(in_message)
+  File "/root/.local/share/virtualenvs/app-4PlAip0Q/lib/python3.7/site-packages/grpc/_channel.py", line 946, in __call__
+    return _end_unary_response_blocking(state, call, False, None)
+  File "/root/.local/share/virtualenvs/app-4PlAip0Q/lib/python3.7/site-packages/grpc/_channel.py", line 849, in _end_unary_response_blocking
+    raise _InactiveRpcError(state)
+grpc._channel._InactiveRpcError: <_InactiveRpcError of RPC that terminated with:
+        status = StatusCode.UNAVAILABLE
+        details = "failed to connect to all addresses"
+        debug_error_string = "{"created":"@1744374043.533854102","description":"Failed to pick subchannel","file":"src/core/ext/filters/client_channel/client_channel.cc","file_line":3008,"referenced_errors":[{"created":"@1744374043.533851628","description":"failed to connect to all addresses","file":"src/core/ext/filters/client_channel/lb_policy/pick_first/pick_first.cc","file_line":397,"grpc_status":14}]}"
+>
+
 INFO:root:OSI observe name_regex: ".*"
 component_regex: ".*"
 
@@ -428,9 +464,291 @@ protofiles {
 }
 protofiles {
   key: "energy-training1.proto"
-  value: "syntax = \"proto3\";\n\n//import energy databroker to use TrainRequest\n//import \'energy_databroker.proto\';\n\n\n//Define the message to hold file path for training\nmessage TrainRequest {\n  string csv_file_path = 1;\n}\n\n//Define the message to hold the status of training\nmessage TrainResponse {\n  string status = 1;\n}\n\n//Define the training service\nservice Training {\n    rpc trainmodel(TrainRequest) returns (TrainResponse);\n}"  
+  value: "syntax = \"proto3\";\n\n//import energy databroker to use TrainRequest\n//import \'energy_databroker.proto\';\n\n\n//Define the message to hold file path for training\nmessage TrainRequest {\n  string csv_file_path = 1;\n}\n\n//Define the message to hold the status of training\nmessage TrainResponse {\n  string status = 1;\n}\n\n//Define the training service\nservice Training {\n    rpc trainmodel(TrainRequest) returns (TrainResponse);\n}"
 }
 
-/root/.local/share/virtualenvs/app-4PlAip0Q/lib/python3.7/site-packages/grpc_tools/protoc.py:17: DeprecationWarning: pkg_resources is deprecated as an API. See https://setuptools.pypa.io/en/latest/pkg_resources.html
+ERROR:root:terminate orch
+/root/.local/share/virtualenvs/app-4PlAip0Q/lib/python3.7/site-packages/grpc_tools/protoc.py:17: DeprecationWarning: pkg_resources is deprecated as an API. See https://setuptools.pypa.io/en/latest/pkg_resources.html      
   import pkg_resources
+INFO:root:OSI initialize returning message: initialized - active_threads: 0 - success: False - code: 0
+INFO:root:OSI run
+INFO:root:OSI run returning message: running - active_threads: 0 - success: False - code: 0
+ERROR:root:Traceback (most recent call last):
+  File "/app/src/ai4eu/othread.py", line 244, in run
+    out_message = getattr(stub, self.rpcname)(in_message)
+  File "/root/.local/share/virtualenvs/app-4PlAip0Q/lib/python3.7/site-packages/grpc/_channel.py", line 946, in __call__
+    return _end_unary_response_blocking(state, call, False, None)
+  File "/root/.local/share/virtualenvs/app-4PlAip0Q/lib/python3.7/site-packages/grpc/_channel.py", line 849, in _end_unary_response_blocking
+    raise _InactiveRpcError(state)
+grpc._channel._InactiveRpcError: <_InactiveRpcError of RPC that terminated with:
+        status = StatusCode.UNAVAILABLE
+        details = "failed to connect to all addresses"
+        debug_error_string = "{"created":"@1744374081.794688458","description":"Failed to pick subchannel","file":"src/core/ext/filters/client_channel/client_channel.cc","file_line":3008,"referenced_errors":[{"created":"@1744374081.794685422","description":"failed to connect to all addresses","file":"src/core/ext/filters/client_channel/lb_policy/pick_first/pick_first.cc","file_line":397,"grpc_status":14}]}"
+>
+
+INFO:root:initialize blueprint: "{\"nodes\":[{\"proto_uri\":\"org\\/acumos\\/63e6a410-f1cc-4989-8899-44ddc38f9d74\\/energy-databroker\\/1.0.0\\/energy-databroker-1.0.0.proto\",\"image\":\"docker.io\\/aditya2277\\/energy-databroker:latest\",\"node_type\":\"MLModel\",\"container_name\":\"energy-databroker1\",\"operation_signature_list\":[{\"connected_to\":[{\"container_name\":\"energy-training1\",\"operation_signature\":{\"operation_name\":\"trainmodel\"}}],\"operation_signature\":{\"operation_name\":\"energydatabroker\",\"output_message_name\":\"TrainRequest\",\"input_message_name\":\"Empty\",\"output_message_stream\":false,\"input_message_stream\":false}}]},{\"proto_uri\":\"org\\/acumos\\/37f8afdc-426b-4699-8ae7-04af295c5b2b\\/energy-training\\/1.0.0\\/energy-training-1.0.0.proto\",\"image\":\"docker.io\\/aditya2277\\/energy-training:latest\",\"node_type\":\"MLModel\",\"container_name\":\"energy-training1\",\"operation_signature_list\":[{\"connected_to\":[],\"operation_signature\":{\"operation_name\":\"trainmodel\",\"output_message_name\":\"TrainResponse\",\"input_message_name\":\"TrainRequest\",\"output_message_stream\":false,\"input_message_stream\":false}}]},{\"proto_uri\":\"org\\/acumos\\/cd6fd817-b839-47da-a074-e1298cb66d9d\\/energy-prediction\\/1.0.0\\/energy-prediction-1.0.0.proto\",\"image\":\"docker.io\\/aditya2277\\/energy-prediction:latest\",\"node_type\":\"MLModel\",\"container_name\":\"energy-prediction1\",\"operation_signature_list\":[]}],\"name\":\"energy-predictor\",\"pipeline_id\":\"1047a39c-2ebe-11ea-bbf7-52ce898b1042:cfa28f59-7c83-4a43-be82-1472c823ebb5:3f645130-b9f5-4f35-9a79-e977a15cc155\",\"creation_date\":\"2025-04-04 11:55:42.634324\",\"type\":\"pipeline-topology\\/v2\",\"version\":\"1.0.0\"}"
+dockerinfo: "{\"docker_info_list\":[{\"container_name\":\"energy-databroker1\",\"ip_address\":\"energy-databroker1\",\"port\":\"8556\"},{\"container_name\":\"energy-training1\",\"ip_address\":\"energy-training1\",\"port\":\"8556\"},{\"container_name\":\"energy-prediction1\",\"ip_address\":\"energy-prediction1\",\"port\":\"8556\"},{\"container_name\":\"orchestrator\",\"ip_address\":\"orchestrator\",\"port\":\"8061\"}]}"
+protofiles {
+  key: "energy-databroker1.proto"
+  value: "syntax = \"proto3\";\n\n//Empty message for databroker\nmessage Empty {\n\n}\n\n//Define the message to hold file path for training\nmessage TrainRequest {\n  string csv_file_path = 1;\n}\n\n//Define the databroker service\nservice Databroker {\n    rpc energydatabroker(Empty) returns (TrainRequest);\n}"
+}
+protofiles {
+  key: "energy-prediction1.proto"
+  value: "//Define the used version of proto\nsyntax = \"proto3\";\n\nmessage Prediction {\n    float EnergyConsumption = 1;\n}\n\n//Define a message to hold the features input by the client\nmessage Features {\n    string BuildingType      = 1 ;\n    float SquareFootage      = 2 ;\n    float NumberofOccupants  = 3 ;\n    float AppliancesUsed     = 4 ;\n    float AverageTemperature = 5 ;\n    string DayofWeek         = 6 ;\n}\n\n\n//Define the service\nservice Predict {\n    rpc predictconsumption(Features) returns (Prediction);\n}\n"
+}
+protofiles {
+  key: "energy-training1.proto"
+  value: "syntax = \"proto3\";\n\n//import energy databroker to use TrainRequest\n//import \'energy_databroker.proto\';\n\n\n//Define the message to hold file path for training\nmessage TrainRequest {\n  string csv_file_path = 1;\n}\n\n//Define the message to hold the status of training\nmessage TrainResponse {\n  string status = 1;\n}\n\n//Define the training service\nservice Training {\n    rpc trainmodel(TrainRequest) returns (TrainResponse);\n}"
+}
+
+INFO:root:OSI observe name_regex: ".*"
+component_regex: ".*"
+
+ERROR:root:terminate orch
+ERROR:root:Traceback (most recent call last):
+  File "/app/src/ai4eu/othread.py", line 244, in run
+    out_message = getattr(stub, self.rpcname)(in_message)
+  File "/root/.local/share/virtualenvs/app-4PlAip0Q/lib/python3.7/site-packages/grpc/_channel.py", line 946, in __call__
+    return _end_unary_response_blocking(state, call, False, None)
+  File "/root/.local/share/virtualenvs/app-4PlAip0Q/lib/python3.7/site-packages/grpc/_channel.py", line 849, in _end_unary_response_blocking
+    raise _InactiveRpcError(state)
+grpc._channel._InactiveRpcError: <_InactiveRpcError of RPC that terminated with:
+        status = StatusCode.CANCELLED
+        details = "Channel closed!"
+        debug_error_string = "{"created":"@1744374114.203384986","description":"Error received from peer ipv4:10.111.35.117:8556","file":"src/core/lib/surface/call.cc","file_line":1069,"grpc_message":"Channel closed!","grpc_status":1}"
+>
+
+/root/.local/share/virtualenvs/app-4PlAip0Q/lib/python3.7/site-packages/grpc_tools/protoc.py:17: DeprecationWarning: pkg_resources is deprecated as an API. See https://setuptools.pypa.io/en/latest/pkg_resources.html      
+  import pkg_resources
+INFO:root:OSI initialize returning message: initialized - active_threads: 0 - success: False - code: 0
+INFO:root:OSI run
+INFO:root:OSI run returning message: running - active_threads: 0 - success: False - code: 0
+ERROR:root:Traceback (most recent call last):
+  File "/app/src/ai4eu/othread.py", line 244, in run
+    out_message = getattr(stub, self.rpcname)(in_message)
+  File "/root/.local/share/virtualenvs/app-4PlAip0Q/lib/python3.7/site-packages/grpc/_channel.py", line 946, in __call__
+    return _end_unary_response_blocking(state, call, False, None)
+  File "/root/.local/share/virtualenvs/app-4PlAip0Q/lib/python3.7/site-packages/grpc/_channel.py", line 849, in _end_unary_response_blocking
+    raise _InactiveRpcError(state)
+grpc._channel._InactiveRpcError: <_InactiveRpcError of RPC that terminated with:
+        status = StatusCode.UNAVAILABLE
+        details = "failed to connect to all addresses"
+        debug_error_string = "{"created":"@1744374118.742017211","description":"Failed to pick subchannel","file":"src/core/ext/filters/client_channel/client_channel.cc","file_line":3008,"referenced_errors":[{"created":"@1744374118.742014556","description":"failed to connect to all addresses","file":"src/core/ext/filters/client_channel/lb_policy/pick_first/pick_first.cc","file_line":397,"grpc_status":14}]}"
+>
+
+INFO:root:OSI observe name_regex: ".*"
+component_regex: ".*"
+
+INFO:root:initialize blueprint: "{\"nodes\":[{\"proto_uri\":\"org\\/acumos\\/63e6a410-f1cc-4989-8899-44ddc38f9d74\\/energy-databroker\\/1.0.0\\/energy-databroker-1.0.0.proto\",\"image\":\"docker.io\\/aditya2277\\/energy-databroker:latest\",\"node_type\":\"MLModel\",\"container_name\":\"energy-databroker1\",\"operation_signature_list\":[{\"connected_to\":[{\"container_name\":\"energy-training1\",\"operation_signature\":{\"operation_name\":\"trainmodel\"}}],\"operation_signature\":{\"operation_name\":\"energydatabroker\",\"output_message_name\":\"TrainRequest\",\"input_message_name\":\"Empty\",\"output_message_stream\":false,\"input_message_stream\":false}}]},{\"proto_uri\":\"org\\/acumos\\/37f8afdc-426b-4699-8ae7-04af295c5b2b\\/energy-training\\/1.0.0\\/energy-training-1.0.0.proto\",\"image\":\"docker.io\\/aditya2277\\/energy-training:latest\",\"node_type\":\"MLModel\",\"container_name\":\"energy-training1\",\"operation_signature_list\":[{\"connected_to\":[],\"operation_signature\":{\"operation_name\":\"trainmodel\",\"output_message_name\":\"TrainResponse\",\"input_message_name\":\"TrainRequest\",\"output_message_stream\":false,\"input_message_stream\":false}}]},{\"proto_uri\":\"org\\/acumos\\/cd6fd817-b839-47da-a074-e1298cb66d9d\\/energy-prediction\\/1.0.0\\/energy-prediction-1.0.0.proto\",\"image\":\"docker.io\\/aditya2277\\/energy-prediction:latest\",\"node_type\":\"MLModel\",\"container_name\":\"energy-prediction1\",\"operation_signature_list\":[]}],\"name\":\"energy-predictor\",\"pipeline_id\":\"1047a39c-2ebe-11ea-bbf7-52ce898b1042:cfa28f59-7c83-4a43-be82-1472c823ebb5:3f645130-b9f5-4f35-9a79-e977a15cc155\",\"creation_date\":\"2025-04-04 11:55:42.634324\",\"type\":\"pipeline-topology\\/v2\",\"version\":\"1.0.0\"}"
+dockerinfo: "{\"docker_info_list\":[{\"container_name\":\"energy-databroker1\",\"ip_address\":\"energy-databroker1\",\"port\":\"8556\"},{\"container_name\":\"energy-training1\",\"ip_address\":\"energy-training1\",\"port\":\"8556\"},{\"container_name\":\"energy-prediction1\",\"ip_address\":\"energy-prediction1\",\"port\":\"8556\"},{\"container_name\":\"orchestrator\",\"ip_address\":\"orchestrator\",\"port\":\"8061\"}]}"
+protofiles {
+  key: "energy-databroker1.proto"
+  value: "syntax = \"proto3\";\n\n//Empty message for databroker\nmessage Empty {\n\n}\n\n//Define the message to hold file path for training\nmessage TrainRequest {\n  string csv_file_path = 1;\n}\n\n//Define the databroker service\nservice Databroker {\n    rpc energydatabroker(Empty) returns (TrainRequest);\n}"
+}
+protofiles {
+  key: "energy-prediction1.proto"
+  value: "//Define the used version of proto\nsyntax = \"proto3\";\n\nmessage Prediction {\n    float EnergyConsumption = 1;\n}\n\n//Define a message to hold the features input by the client\nmessage Features {\n    string BuildingType      = 1 ;\n    float SquareFootage      = 2 ;\n    float NumberofOccupants  = 3 ;\n    float AppliancesUsed     = 4 ;\n    float AverageTemperature = 5 ;\n    string DayofWeek         = 6 ;\n}\n\n\n//Define the service\nservice Predict {\n    rpc predictconsumption(Features) returns (Prediction);\n}\n"
+}
+protofiles {
+  key: "energy-training1.proto"
+  value: "syntax = \"proto3\";\n\n//import energy databroker to use TrainRequest\n//import \'energy_databroker.proto\';\n\n\n//Define the message to hold file path for training\nmessage TrainRequest {\n  string csv_file_path = 1;\n}\n\n//Define the message to hold the status of training\nmessage TrainResponse {\n  string status = 1;\n}\n\n//Define the training service\nservice Training {\n    rpc trainmodel(TrainRequest) returns (TrainResponse);\n}"
+}
+
+ERROR:root:terminate orch
+ERROR:root:Traceback (most recent call last):
+  File "/app/src/ai4eu/othread.py", line 244, in run
+    out_message = getattr(stub, self.rpcname)(in_message)
+  File "/root/.local/share/virtualenvs/app-4PlAip0Q/lib/python3.7/site-packages/grpc/_channel.py", line 946, in __call__
+    return _end_unary_response_blocking(state, call, False, None)
+  File "/root/.local/share/virtualenvs/app-4PlAip0Q/lib/python3.7/site-packages/grpc/_channel.py", line 849, in _end_unary_response_blocking
+    raise _InactiveRpcError(state)
+grpc._channel._InactiveRpcError: <_InactiveRpcError of RPC that terminated with:
+        status = StatusCode.CANCELLED
+        details = "Channel closed!"
+        debug_error_string = "{"created":"@1744374167.996142912","description":"Error received from peer ipv4:10.111.35.117:8556","file":"src/core/lib/surface/call.cc","file_line":1069,"grpc_message":"Channel closed!","grpc_status":1}"
+>
+
+/root/.local/share/virtualenvs/app-4PlAip0Q/lib/python3.7/site-packages/grpc_tools/protoc.py:17: DeprecationWarning: pkg_resources is deprecated as an API. See https://setuptools.pypa.io/en/latest/pkg_resources.html      
+  import pkg_resources
+INFO:root:OSI initialize returning message: initialized - active_threads: 0 - success: False - code: 0
+INFO:root:OSI run
+INFO:root:OSI run returning message: running - active_threads: 0 - success: False - code: 0
+ERROR:root:Traceback (most recent call last):
+  File "/app/src/ai4eu/othread.py", line 244, in run
+    out_message = getattr(stub, self.rpcname)(in_message)
+  File "/root/.local/share/virtualenvs/app-4PlAip0Q/lib/python3.7/site-packages/grpc/_channel.py", line 946, in __call__
+    return _end_unary_response_blocking(state, call, False, None)
+  File "/root/.local/share/virtualenvs/app-4PlAip0Q/lib/python3.7/site-packages/grpc/_channel.py", line 849, in _end_unary_response_blocking
+    raise _InactiveRpcError(state)
+grpc._channel._InactiveRpcError: <_InactiveRpcError of RPC that terminated with:
+        status = StatusCode.UNAVAILABLE
+        details = "failed to connect to all addresses"
+        debug_error_string = "{"created":"@1744374170.981242460","description":"Failed to pick subchannel","file":"src/core/ext/filters/client_channel/client_channel.cc","file_line":3008,"referenced_errors":[{"created":"@1744374170.981240566","description":"failed to connect to all addresses","file":"src/core/ext/filters/client_channel/lb_policy/pick_first/pick_first.cc","file_line":397,"grpc_status":14}]}"
+>
+
+INFO:root:OSI observe name_regex: ".*"
+component_regex: ".*"
+
+INFO:root:initialize blueprint: "{\"nodes\":[{\"proto_uri\":\"org\\/acumos\\/63e6a410-f1cc-4989-8899-44ddc38f9d74\\/energy-databroker\\/1.0.0\\/energy-databroker-1.0.0.proto\",\"image\":\"docker.io\\/aditya2277\\/energy-databroker:latest\",\"node_type\":\"MLModel\",\"container_name\":\"energy-databroker1\",\"operation_signature_list\":[{\"connected_to\":[{\"container_name\":\"energy-training1\",\"operation_signature\":{\"operation_name\":\"trainmodel\"}}],\"operation_signature\":{\"operation_name\":\"energydatabroker\",\"output_message_name\":\"TrainRequest\",\"input_message_name\":\"Empty\",\"output_message_stream\":false,\"input_message_stream\":false}}]},{\"proto_uri\":\"org\\/acumos\\/37f8afdc-426b-4699-8ae7-04af295c5b2b\\/energy-training\\/1.0.0\\/energy-training-1.0.0.proto\",\"image\":\"docker.io\\/aditya2277\\/energy-training:latest\",\"node_type\":\"MLModel\",\"container_name\":\"energy-training1\",\"operation_signature_list\":[{\"connected_to\":[],\"operation_signature\":{\"operation_name\":\"trainmodel\",\"output_message_name\":\"TrainResponse\",\"input_message_name\":\"TrainRequest\",\"output_message_stream\":false,\"input_message_stream\":false}}]},{\"proto_uri\":\"org\\/acumos\\/cd6fd817-b839-47da-a074-e1298cb66d9d\\/energy-prediction\\/1.0.0\\/energy-prediction-1.0.0.proto\",\"image\":\"docker.io\\/aditya2277\\/energy-prediction:latest\",\"node_type\":\"MLModel\",\"container_name\":\"energy-prediction1\",\"operation_signature_list\":[]}],\"name\":\"energy-predictor\",\"pipeline_id\":\"1047a39c-2ebe-11ea-bbf7-52ce898b1042:cfa28f59-7c83-4a43-be82-1472c823ebb5:3f645130-b9f5-4f35-9a79-e977a15cc155\",\"creation_date\":\"2025-04-04 11:55:42.634324\",\"type\":\"pipeline-topology\\/v2\",\"version\":\"1.0.0\"}"
+dockerinfo: "{\"docker_info_list\":[{\"container_name\":\"energy-databroker1\",\"ip_address\":\"energy-databroker1\",\"port\":\"8556\"},{\"container_name\":\"energy-training1\",\"ip_address\":\"energy-training1\",\"port\":\"8556\"},{\"container_name\":\"energy-prediction1\",\"ip_address\":\"energy-prediction1\",\"port\":\"8556\"},{\"container_name\":\"orchestrator\",\"ip_address\":\"orchestrator\",\"port\":\"8061\"}]}"
+protofiles {
+  key: "energy-databroker1.proto"
+  value: "syntax = \"proto3\";\n\n//Empty message for databroker\nmessage Empty {\n\n}\n\n//Define the message to hold file path for training\nmessage TrainRequest {\n  string csv_file_path = 1;\n}\n\n//Define the databroker service\nservice Databroker {\n    rpc energydatabroker(Empty) returns (TrainRequest);\n}"
+}
+protofiles {
+  key: "energy-prediction1.proto"
+  value: "//Define the used version of proto\nsyntax = \"proto3\";\n\nmessage Prediction {\n    float EnergyConsumption = 1;\n}\n\n//Define a message to hold the features input by the client\nmessage Features {\n    string BuildingType      = 1 ;\n    float SquareFootage      = 2 ;\n    float NumberofOccupants  = 3 ;\n    float AppliancesUsed     = 4 ;\n    float AverageTemperature = 5 ;\n    string DayofWeek         = 6 ;\n}\n\n\n//Define the service\nservice Predict {\n    rpc predictconsumption(Features) returns (Prediction);\n}\n"
+}
+protofiles {
+  key: "energy-training1.proto"
+  value: "syntax = \"proto3\";\n\n//import energy databroker to use TrainRequest\n//import \'energy_databroker.proto\';\n\n\n//Define the message to hold file path for training\nmessage TrainRequest {\n  string csv_file_path = 1;\n}\n\n//Define the message to hold the status of training\nmessage TrainResponse {\n  string status = 1;\n}\n\n//Define the training service\nservice Training {\n    rpc trainmodel(TrainRequest) returns (TrainResponse);\n}"
+}
+
+ERROR:root:terminate orch
+ERROR:root:Traceback (most recent call last):
+  File "/app/src/ai4eu/othread.py", line 244, in run
+    out_message = getattr(stub, self.rpcname)(in_message)
+  File "/root/.local/share/virtualenvs/app-4PlAip0Q/lib/python3.7/site-packages/grpc/_channel.py", line 946, in __call__
+    return _end_unary_response_blocking(state, call, False, None)
+  File "/root/.local/share/virtualenvs/app-4PlAip0Q/lib/python3.7/site-packages/grpc/_channel.py", line 849, in _end_unary_response_blocking
+    raise _InactiveRpcError(state)
+grpc._channel._InactiveRpcError: <_InactiveRpcError of RPC that terminated with:
+        status = StatusCode.CANCELLED
+        details = "Channel closed!"
+        debug_error_string = "{"created":"@1744374226.698130792","description":"Error received from peer ipv4:10.111.35.117:8556","file":"src/core/lib/surface/call.cc","file_line":1069,"grpc_message":"Channel closed!","grpc_status":1}"
+>
+
+/root/.local/share/virtualenvs/app-4PlAip0Q/lib/python3.7/site-packages/grpc_tools/protoc.py:17: DeprecationWarning: pkg_resources is deprecated as an API. See https://setuptools.pypa.io/en/latest/pkg_resources.html      
+  import pkg_resources
+INFO:root:OSI initialize returning message: initialized - active_threads: 0 - success: False - code: 0
+INFO:root:OSI run
+INFO:root:OSI run returning message: running - active_threads: 0 - success: False - code: 0
+ERROR:root:Traceback (most recent call last):
+  File "/app/src/ai4eu/othread.py", line 244, in run
+    out_message = getattr(stub, self.rpcname)(in_message)
+  File "/root/.local/share/virtualenvs/app-4PlAip0Q/lib/python3.7/site-packages/grpc/_channel.py", line 946, in __call__
+    return _end_unary_response_blocking(state, call, False, None)
+  File "/root/.local/share/virtualenvs/app-4PlAip0Q/lib/python3.7/site-packages/grpc/_channel.py", line 849, in _end_unary_response_blocking
+    raise _InactiveRpcError(state)
+grpc._channel._InactiveRpcError: <_InactiveRpcError of RPC that terminated with:
+        status = StatusCode.UNAVAILABLE
+        details = "failed to connect to all addresses"
+        debug_error_string = "{"created":"@1744374229.665673201","description":"Failed to pick subchannel","file":"src/core/ext/filters/client_channel/client_channel.cc","file_line":3008,"referenced_errors":[{"created":"@1744374229.665671368","description":"failed to connect to all addresses","file":"src/core/ext/filters/client_channel/lb_policy/pick_first/pick_first.cc","file_line":397,"grpc_status":14}]}"
+>
+
+INFO:root:OSI observe name_regex: ".*"
+component_regex: ".*"
+
+INFO:root:initialize blueprint: "{\"nodes\":[{\"proto_uri\":\"org\\/acumos\\/63e6a410-f1cc-4989-8899-44ddc38f9d74\\/energy-databroker\\/1.0.0\\/energy-databroker-1.0.0.proto\",\"image\":\"docker.io\\/aditya2277\\/energy-databroker:latest\",\"node_type\":\"MLModel\",\"container_name\":\"energy-databroker1\",\"operation_signature_list\":[{\"connected_to\":[{\"container_name\":\"energy-training1\",\"operation_signature\":{\"operation_name\":\"trainmodel\"}}],\"operation_signature\":{\"operation_name\":\"energydatabroker\",\"output_message_name\":\"TrainRequest\",\"input_message_name\":\"Empty\",\"output_message_stream\":false,\"input_message_stream\":false}}]},{\"proto_uri\":\"org\\/acumos\\/37f8afdc-426b-4699-8ae7-04af295c5b2b\\/energy-training\\/1.0.0\\/energy-training-1.0.0.proto\",\"image\":\"docker.io\\/aditya2277\\/energy-training:latest\",\"node_type\":\"MLModel\",\"container_name\":\"energy-training1\",\"operation_signature_list\":[{\"connected_to\":[],\"operation_signature\":{\"operation_name\":\"trainmodel\",\"output_message_name\":\"TrainResponse\",\"input_message_name\":\"TrainRequest\",\"output_message_stream\":false,\"input_message_stream\":false}}]},{\"proto_uri\":\"org\\/acumos\\/cd6fd817-b839-47da-a074-e1298cb66d9d\\/energy-prediction\\/1.0.0\\/energy-prediction-1.0.0.proto\",\"image\":\"docker.io\\/aditya2277\\/energy-prediction:latest\",\"node_type\":\"MLModel\",\"container_name\":\"energy-prediction1\",\"operation_signature_list\":[]}],\"name\":\"energy-predictor\",\"pipeline_id\":\"1047a39c-2ebe-11ea-bbf7-52ce898b1042:cfa28f59-7c83-4a43-be82-1472c823ebb5:3f645130-b9f5-4f35-9a79-e977a15cc155\",\"creation_date\":\"2025-04-04 11:55:42.634324\",\"type\":\"pipeline-topology\\/v2\",\"version\":\"1.0.0\"}"
+dockerinfo: "{\"docker_info_list\":[{\"container_name\":\"energy-databroker1\",\"ip_address\":\"energy-databroker1\",\"port\":\"8556\"},{\"container_name\":\"energy-training1\",\"ip_address\":\"energy-training1\",\"port\":\"8556\"},{\"container_name\":\"energy-prediction1\",\"ip_address\":\"energy-prediction1\",\"port\":\"8556\"},{\"container_name\":\"orchestrator\",\"ip_address\":\"orchestrator\",\"port\":\"8061\"}]}"
+protofiles {
+  key: "energy-databroker1.proto"
+  value: "syntax = \"proto3\";\n\n//Empty message for databroker\nmessage Empty {\n\n}\n\n//Define the message to hold file path for training\nmessage TrainRequest {\n  string csv_file_path = 1;\n}\n\n//Define the databroker service\nservice Databroker {\n    rpc energydatabroker(Empty) returns (TrainRequest);\n}"
+}
+protofiles {
+  key: "energy-prediction1.proto"
+  value: "//Define the used version of proto\nsyntax = \"proto3\";\n\nmessage Prediction {\n    float EnergyConsumption = 1;\n}\n\n//Define a message to hold the features input by the client\nmessage Features {\n    string BuildingType      = 1 ;\n    float SquareFootage      = 2 ;\n    float NumberofOccupants  = 3 ;\n    float AppliancesUsed     = 4 ;\n    float AverageTemperature = 5 ;\n    string DayofWeek         = 6 ;\n}\n\n\n//Define the service\nservice Predict {\n    rpc predictconsumption(Features) returns (Prediction);\n}\n"
+}
+protofiles {
+  key: "energy-training1.proto"
+  value: "syntax = \"proto3\";\n\n//import energy databroker to use TrainRequest\n//import \'energy_databroker.proto\';\n\n\n//Define the message to hold file path for training\nmessage TrainRequest {\n  string csv_file_path = 1;\n}\n\n//Define the message to hold the status of training\nmessage TrainResponse {\n  string status = 1;\n}\n\n//Define the training service\nservice Training {\n    rpc trainmodel(TrainRequest) returns (TrainResponse);\n}"
+}
+
+ERROR:root:terminate orch
+ERROR:root:Traceback (most recent call last):
+  File "/app/src/ai4eu/othread.py", line 244, in run
+    out_message = getattr(stub, self.rpcname)(in_message)
+  File "/root/.local/share/virtualenvs/app-4PlAip0Q/lib/python3.7/site-packages/grpc/_channel.py", line 946, in __call__
+    return _end_unary_response_blocking(state, call, False, None)
+  File "/root/.local/share/virtualenvs/app-4PlAip0Q/lib/python3.7/site-packages/grpc/_channel.py", line 849, in _end_unary_response_blocking
+    raise _InactiveRpcError(state)
+grpc._channel._InactiveRpcError: <_InactiveRpcError of RPC that terminated with:
+        status = StatusCode.CANCELLED
+        details = "Channel closed!"
+        debug_error_string = "{"created":"@1744374250.041770878","description":"Error received from peer ipv4:10.111.35.117:8556","file":"src/core/lib/surface/call.cc","file_line":1069,"grpc_message":"Channel closed!","grpc_status":1}"
+>
+
+/root/.local/share/virtualenvs/app-4PlAip0Q/lib/python3.7/site-packages/grpc_tools/protoc.py:17: DeprecationWarning: pkg_resources is deprecated as an API. See https://setuptools.pypa.io/en/latest/pkg_resources.html      
+  import pkg_resources
+INFO:root:OSI initialize returning message: initialized - active_threads: 0 - success: False - code: 0
+INFO:root:OSI run
+INFO:root:OSI run returning message: running - active_threads: 0 - success: False - code: 0
+ERROR:root:Traceback (most recent call last):
+  File "/app/src/ai4eu/othread.py", line 244, in run
+    out_message = getattr(stub, self.rpcname)(in_message)
+  File "/root/.local/share/virtualenvs/app-4PlAip0Q/lib/python3.7/site-packages/grpc/_channel.py", line 946, in __call__
+    return _end_unary_response_blocking(state, call, False, None)
+  File "/root/.local/share/virtualenvs/app-4PlAip0Q/lib/python3.7/site-packages/grpc/_channel.py", line 849, in _end_unary_response_blocking
+    raise _InactiveRpcError(state)
+grpc._channel._InactiveRpcError: <_InactiveRpcError of RPC that terminated with:
+        status = StatusCode.UNAVAILABLE
+        details = "failed to connect to all addresses"
+        debug_error_string = "{"created":"@1744374253.054491306","description":"Failed to pick subchannel","file":"src/core/ext/filters/client_channel/client_channel.cc","file_line":3008,"referenced_errors":[{"created":"@1744374253.054489162","description":"failed to connect to all addresses","file":"src/core/ext/filters/client_channel/lb_policy/pick_first/pick_first.cc","file_line":397,"grpc_status":14}]}"
+>
+
+INFO:root:OSI observe name_regex: ".*"
+component_regex: ".*"
+
+INFO:root:initialize blueprint: "{\"nodes\":[{\"proto_uri\":\"org\\/acumos\\/63e6a410-f1cc-4989-8899-44ddc38f9d74\\/energy-databroker\\/1.0.0\\/energy-databroker-1.0.0.proto\",\"image\":\"docker.io\\/aditya2277\\/energy-databroker:latest\",\"node_type\":\"MLModel\",\"container_name\":\"energy-databroker1\",\"operation_signature_list\":[{\"connected_to\":[{\"container_name\":\"energy-training1\",\"operation_signature\":{\"operation_name\":\"trainmodel\"}}],\"operation_signature\":{\"operation_name\":\"energydatabroker\",\"output_message_name\":\"TrainRequest\",\"input_message_name\":\"Empty\",\"output_message_stream\":false,\"input_message_stream\":false}}]},{\"proto_uri\":\"org\\/acumos\\/37f8afdc-426b-4699-8ae7-04af295c5b2b\\/energy-training\\/1.0.0\\/energy-training-1.0.0.proto\",\"image\":\"docker.io\\/aditya2277\\/energy-training:latest\",\"node_type\":\"MLModel\",\"container_name\":\"energy-training1\",\"operation_signature_list\":[{\"connected_to\":[],\"operation_signature\":{\"operation_name\":\"trainmodel\",\"output_message_name\":\"TrainResponse\",\"input_message_name\":\"TrainRequest\",\"output_message_stream\":false,\"input_message_stream\":false}}]},{\"proto_uri\":\"org\\/acumos\\/cd6fd817-b839-47da-a074-e1298cb66d9d\\/energy-prediction\\/1.0.0\\/energy-prediction-1.0.0.proto\",\"image\":\"docker.io\\/aditya2277\\/energy-prediction:latest\",\"node_type\":\"MLModel\",\"container_name\":\"energy-prediction1\",\"operation_signature_list\":[]}],\"name\":\"energy-predictor\",\"pipeline_id\":\"1047a39c-2ebe-11ea-bbf7-52ce898b1042:cfa28f59-7c83-4a43-be82-1472c823ebb5:3f645130-b9f5-4f35-9a79-e977a15cc155\",\"creation_date\":\"2025-04-04 11:55:42.634324\",\"type\":\"pipeline-topology\\/v2\",\"version\":\"1.0.0\"}"
+dockerinfo: "{\"docker_info_list\":[{\"container_name\":\"energy-databroker1\",\"ip_address\":\"energy-databroker1\",\"port\":\"8556\"},{\"container_name\":\"energy-training1\",\"ip_address\":\"energy-training1\",\"port\":\"8556\"},{\"container_name\":\"energy-prediction1\",\"ip_address\":\"energy-prediction1\",\"port\":\"8556\"},{\"container_name\":\"orchestrator\",\"ip_address\":\"orchestrator\",\"port\":\"8061\"}]}"
+protofiles {
+  key: "energy-databroker1.proto"
+  value: "syntax = \"proto3\";\n\n//Empty message for databroker\nmessage Empty {\n\n}\n\n//Define the message to hold file path for training\nmessage TrainRequest {\n  string csv_file_path = 1;\n}\n\n//Define the databroker service\nservice Databroker {\n    rpc energydatabroker(Empty) returns (TrainRequest);\n}"
+}
+protofiles {
+  key: "energy-prediction1.proto"
+  value: "//Define the used version of proto\nsyntax = \"proto3\";\n\nmessage Prediction {\n    float EnergyConsumption = 1;\n}\n\n//Define a message to hold the features input by the client\nmessage Features {\n    string BuildingType      = 1 ;\n    float SquareFootage      = 2 ;\n    float NumberofOccupants  = 3 ;\n    float AppliancesUsed     = 4 ;\n    float AverageTemperature = 5 ;\n    string DayofWeek         = 6 ;\n}\n\n\n//Define the service\nservice Predict {\n    rpc predictconsumption(Features) returns (Prediction);\n}\n"
+}
+protofiles {
+  key: "energy-training1.proto"
+  value: "syntax = \"proto3\";\n\n//import energy databroker to use TrainRequest\n//import \'energy_databroker.proto\';\n\n\n//Define the message to hold file path for training\nmessage TrainRequest {\n  string csv_file_path = 1;\n}\n\n//Define the message to hold the status of training\nmessage TrainResponse {\n  string status = 1;\n}\n\n//Define the training service\nservice Training {\n    rpc trainmodel(TrainRequest) returns (TrainResponse);\n}"
+}
+
+ERROR:root:terminate orch
+ERROR:root:Traceback (most recent call last):
+  File "/app/src/ai4eu/othread.py", line 244, in run
+    out_message = getattr(stub, self.rpcname)(in_message)
+  File "/root/.local/share/virtualenvs/app-4PlAip0Q/lib/python3.7/site-packages/grpc/_channel.py", line 946, in __call__
+    return _end_unary_response_blocking(state, call, False, None)
+  File "/root/.local/share/virtualenvs/app-4PlAip0Q/lib/python3.7/site-packages/grpc/_channel.py", line 849, in _end_unary_response_blocking
+    raise _InactiveRpcError(state)
+grpc._channel._InactiveRpcError: <_InactiveRpcError of RPC that terminated with:
+        status = StatusCode.CANCELLED
+        details = "Channel closed!"
+        debug_error_string = "{"created":"@1744374335.237711644","description":"Error received from peer ipv4:10.111.35.117:8556","file":"src/core/lib/surface/call.cc","file_line":1069,"grpc_message":"Channel closed!","grpc_status":1}"
+>
+
+/root/.local/share/virtualenvs/app-4PlAip0Q/lib/python3.7/site-packages/grpc_tools/protoc.py:17: DeprecationWarning: pkg_resources is deprecated as an API. See https://setuptools.pypa.io/en/latest/pkg_resources.html      
+  import pkg_resources
+INFO:root:OSI initialize returning message: initialized - active_threads: 0 - success: False - code: 0
+INFO:root:OSI run
+INFO:root:OSI run returning message: running - active_threads: 0 - success: False - code: 0
+ERROR:root:Traceback (most recent call last):
+  File "/app/src/ai4eu/othread.py", line 244, in run
+    out_message = getattr(stub, self.rpcname)(in_message)
+  File "/root/.local/share/virtualenvs/app-4PlAip0Q/lib/python3.7/site-packages/grpc/_channel.py", line 946, in __call__
+    return _end_unary_response_blocking(state, call, False, None)
+  File "/root/.local/share/virtualenvs/app-4PlAip0Q/lib/python3.7/site-packages/grpc/_channel.py", line 849, in _end_unary_response_blocking
+    raise _InactiveRpcError(state)
+grpc._channel._InactiveRpcError: <_InactiveRpcError of RPC that terminated with:
+        status = StatusCode.UNAVAILABLE
+        details = "failed to connect to all addresses"
+        debug_error_string = "{"created":"@1744374338.936964532","description":"Failed to pick subchannel","file":"src/core/ext/filters/client_channel/client_channel.cc","file_line":3008,"referenced_errors":[{"created":"@1744374338.936961496","description":"failed to connect to all addresses","file":"src/core/ext/filters/client_channel/lb_policy/pick_first/pick_first.cc","file_line":397,"grpc_status":14}]}"
+>
+
+INFO:root:initialize blueprint: "{\"nodes\":[{\"proto_uri\":\"org\\/acumos\\/63e6a410-f1cc-4989-8899-44ddc38f9d74\\/energy-databroker\\/1.0.0\\/energy-databroker-1.0.0.proto\",\"image\":\"docker.io\\/aditya2277\\/energy-databroker:latest\",\"node_type\":\"MLModel\",\"container_name\":\"energy-databroker1\",\"operation_signature_list\":[{\"connected_to\":[{\"container_name\":\"energy-training1\",\"operation_signature\":{\"operation_name\":\"trainmodel\"}}],\"operation_signature\":{\"operation_name\":\"energydatabroker\",\"output_message_name\":\"TrainRequest\",\"input_message_name\":\"Empty\",\"output_message_stream\":false,\"input_message_stream\":false}}]},{\"proto_uri\":\"org\\/acumos\\/37f8afdc-426b-4699-8ae7-04af295c5b2b\\/energy-training\\/1.0.0\\/energy-training-1.0.0.proto\",\"image\":\"docker.io\\/aditya2277\\/energy-training:latest\",\"node_type\":\"MLModel\",\"container_name\":\"energy-training1\",\"operation_signature_list\":[{\"connected_to\":[],\"operation_signature\":{\"operation_name\":\"trainmodel\",\"output_message_name\":\"TrainResponse\",\"input_message_name\":\"TrainRequest\",\"output_message_stream\":false,\"input_message_stream\":false}}]},{\"proto_uri\":\"org\\/acumos\\/cd6fd817-b839-47da-a074-e1298cb66d9d\\/energy-prediction\\/1.0.0\\/energy-prediction-1.0.0.proto\",\"image\":\"docker.io\\/aditya2277\\/energy-prediction:latest\",\"node_type\":\"MLModel\",\"container_name\":\"energy-prediction1\",\"operation_signature_list\":[]}],\"name\":\"energy-predictor\",\"pipeline_id\":\"1047a39c-2ebe-11ea-bbf7-52ce898b1042:cfa28f59-7c83-4a43-be82-1472c823ebb5:3f645130-b9f5-4f35-9a79-e977a15cc155\",\"creation_date\":\"2025-04-04 11:55:42.634324\",\"type\":\"pipeline-topology\\/v2\",\"version\":\"1.0.0\"}"
+dockerinfo: "{\"docker_info_list\":[{\"container_name\":\"energy-databroker1\",\"ip_address\":\"energy-databroker1\",\"port\":\"8556\"},{\"container_name\":\"energy-training1\",\"ip_address\":\"energy-training1\",\"port\":\"8556\"},{\"container_name\":\"energy-prediction1\",\"ip_address\":\"energy-prediction1\",\"port\":\"8556\"},{\"container_name\":\"orchestrator\",\"ip_address\":\"orchestrator\",\"port\":\"8061\"}]}"
+protofiles {
+  key: "energy-databroker1.proto"
+  value: "syntax = \"proto3\";\n\n//Empty message for databroker\nmessage Empty {\n\n}\n\n//Define the message to hold file path for training\nmessage TrainRequest {\n  string csv_file_path = 1;\n}\n\n//Define the databroker service\nservice Databroker {\n    rpc energydatabroker(Empty) returns (TrainRequest);\n}"
+}
+protofiles {
+  key: "energy-prediction1.proto"
+  value: "//Define the used version of proto\nsyntax = \"proto3\";\n\nmessage Prediction {\n    float EnergyConsumption = 1;\n}\n\n//Define a message to hold the features input by the client\nmessage Features {\n    string BuildingType      = 1 ;\n    float SquareFootage      = 2 ;\n    float NumberofOccupants  = 3 ;\n    float AppliancesUsed     = 4 ;\n    float AverageTemperature = 5 ;\n    string DayofWeek         = 6 ;\n}\n\n\n//Define the service\nservice Predict {\n    rpc predictconsumption(Features) returns (Prediction);\n}\n"
+}
+protofiles {
+  key: "energy-training1.proto"
+  value: "syntax = \"proto3\";\n\n//import energy databroker to use TrainRequest\n//import \'energy_databroker.proto\';\n\n\n//Define the message to hold file path for training\nmessage TrainRequest {\n  string csv_file_path = 1;\n}\n\n//Define the message to hold the status of training\nmessage TrainResponse {\n  string status = 1;\n}\n\n//Define the training service\nservice Training {\n    rpc trainmodel(TrainRequest) returns (TrainResponse);\n}"
+}
+
 ```
