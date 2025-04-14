@@ -12,7 +12,7 @@ import grpc
 import orchestrator_pb2
 import orchestrator_pb2_grpc
 
-from ai4eu.orchestrator_2 import (
+from ai4eu.orchestrator import (
     Core as OrchestratorCore,
 )
 
