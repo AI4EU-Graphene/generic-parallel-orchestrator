@@ -67,13 +67,14 @@ Please run python orchestrator_client/orchestrator_client.py --endpoint=kubernet
 
 
 PS C:\Users\robin\OneDrive\Desktop\generic-parallel-orchestrator> kubectl get pods -n tomara
->> kubectl logs deployment/orchestrator -n tomara
 >>
 NAME                            READY   STATUS             RESTARTS        AGE
-node11-79c795998-gptdw          0/1     CrashLoopBackOff   8 (3m45s ago)   19m  
-node21-57c8c4b69b-bxc9w         0/1     CrashLoopBackOff   8 (3m27s ago)   19m  
-node31-645bd4f595-xs4xg         0/1     CrashLoopBackOff   8 (3m31s ago)   19m  
+node11-79c795998-gptdw          0/1     Completed   1 (8s ago)   8s
+node21-57c8c4b69b-bxc9w         0/1     Completed   1 (7s ago)   8s
+node31-645bd4f595-xs4xg         0/1     Completed   1 (7s ago)   8s
 orchestrator-74dcf75446-m56db   1/1     Running            0               7s   
+
+PS C:\Users\robin\OneDrive\Desktop\generic-parallel-orchestrator> kubectl logs deployment/orchestrator -n tomara
 INFO:root:loading config from config.json
 WARNING:root:using empty config (=defaults) because [Errno 2] No such file or directory: 'config.json'
 INFO:root:starting Orchestrator gRPC server at port 8061
