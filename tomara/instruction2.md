@@ -83,8 +83,6 @@ INFO:root:Registered gRPC method: /Orchestrator/observe
 INFO:root:Registered gRPC method: /Orchestrator/run
 INFO:root:Registered gRPC method: /Orchestrator/get_status
 
-
-
 npython orchestrator_client/orchestrator_client.py --endpoint=kubernetes.docker.internal:32116 --basepath=./ --messages
 INFO:root:load_solution_configuration returning <__main__.SolutionConfiguration object at 0x00000164375ADE80>
 INFO:root:connecting to orchestrator
@@ -98,26 +96,26 @@ orchestrator produced event 'register_queues'
 orchestrator produced event 'initialized'
 
 OrchestrationThreadBase[component=node11,svc=Component,rpc=Execute] produced event 'thread.start'
-OrchestrationThreadBase[component=node31,svc=Component,rpc=Execute] produced event 'thread.start'
 OrchestrationThreadBase[component=node21,svc=Component,rpc=Execute] produced event 'thread.start'
+OrchestrationThreadBase[component=node31,svc=Component,rpc=Execute] produced event 'thread.start'
 
 OrchestrationThreadBase[component=node11,svc=Component,rpc=Execute] produced event 'RPC.call' with details message='' rpc='Execute'
 OrchestrationThreadBase[component=node11,svc=Component,rpc=Execute] produced event 'distributing output message' with details rpc='Execute'
-OrchestrationQueue[node31_Execute] produced event 'queue.added' with details queue='node31_Execute'
-
-OrchestrationThreadBase[component=node31,svc=Component,rpc=Execute] produced event 'RPC.call' with details message='' rpc='Execute'
-OrchestrationThreadBase[component=node31,svc=Component,rpc=Execute] produced event 'distributing output message' with details rpc='Execute'
 OrchestrationQueue[node21_Execute] produced event 'queue.added' with details queue='node21_Execute'
+
+OrchestrationThreadBase[component=node21,svc=Component,rpc=Execute] produced event 'RPC.call' with details message='' rpc='Execute'
+OrchestrationThreadBase[component=node21,svc=Component,rpc=Execute] produced event 'distributing output message' with details rpc='Execute'
+OrchestrationQueue[node21_Execute] produced event 'queue.added' with details queue='node31_Execute'
 
 OrchestrationThreadBase[component=node21,svc=Component,rpc=Execute] produced event 'RPC.call' with details message='' rpc='Execute'
 
 OrchestrationThreadBase[component=node11,svc=Component,rpc=Execute] produced event 'RPC.finished' with details rpc='Execute'
-OrchestrationThreadBase[component=node31,svc=Component,rpc=Execute] produced event 'RPC.finished' with details rpc='Execute'
 OrchestrationThreadBase[component=node21,svc=Component,rpc=Execute] produced event 'RPC.finished' with details rpc='Execute'
+OrchestrationThreadBase[component=node31,svc=Component,rpc=Execute] produced event 'RPC.finished' with details rpc='Execute'
 
 OrchestrationThreadBase[component=node11,svc=Component,rpc=Execute] produced event 'thread.terminate'
-OrchestrationThreadBase[component=node31,svc=Component,rpc=Execute] produced event 'thread.terminate'
 OrchestrationThreadBase[component=node21,svc=Component,rpc=Execute] produced event 'thread.terminate'
+OrchestrationThreadBase[component=node31,svc=Component,rpc=Execute] produced event 'thread.terminate'
 
 
 
